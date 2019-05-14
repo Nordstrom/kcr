@@ -58,7 +58,14 @@ Options:
 
 ## Running the program
 
+Create a recording from a simple, local cluster:
+
 ```
-gradle run --args="--bootstrap-servers $MY_BOOTSTRAP_SERVERS --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic $MY_TOPIC --data-directory data"
+gradle run --args="record --topic $MY_TOPIC --data-directory data"
 ```
 
+Create a recording from secure cluster, like Confluent Cloud:
+
+```
+gradle run --args="--bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic $MY_TOPIC --data-directory data"
+```

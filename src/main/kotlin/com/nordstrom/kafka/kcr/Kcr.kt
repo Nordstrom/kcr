@@ -12,8 +12,8 @@ import java.util.*
 
 class Kcr : CliktCommand() {
     val bootstrapServers by option(help = "Kafka bootstrap server list").default("localhost:9092")
-    val securityProtocol by option(help = "Security protocol").default("SASL_SSL")
-    val saslMechanism by option(help = "SASL mechanism").default("SCRAM-SHA-512")
+    val securityProtocol by option(help = "Security protocol").default("PLAINTEXT")
+    val saslMechanism by option(help = "SASL mechanism")
     val saslUsername by option(help = "SASL username").default("")
     val saslPassword by option(help = "SASL password").default("")
 
@@ -24,9 +24,18 @@ class Kcr : CliktCommand() {
         // Properties are passed on to the subcomman d.
         opts["bootstrap.servers"] = bootstrapServers
         opts["security.protocol"] = securityProtocol
-        opts["sasl.mechanism"] = saslMechanism
-        val jaas = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
-        opts["sasl.jaas.config"] = jaas
+
+        if (securityProtocol.startsWith("SASL")) {
+            saslMechanism?.let {
+              opts["sasl.mechanism"] = saslMechanism
+            }
+
+            opts["sasl.jaas.config"] = when (saslMechanism) {
+              "PLAIN" -> "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
+              "SCRAM-SHA-256", "SCRAM-SHA-512" -> "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
+              else -> "" // Not supported
+            }
+        }
     }
 }
 
