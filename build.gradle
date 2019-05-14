@@ -1,0 +1,79 @@
+buildscript {
+    ext.kotlin_version = '1.3.31'
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
+    }
+}
+
+apply plugin: "java"
+apply plugin: "kotlin"
+apply plugin: "kotlinx-serialization"
+apply plugin: "application"
+
+group = "com.nordstrom.kafka.kcr"
+version = "0.1-alpha"
+
+mainClassName = "com.nordstrom.kafka.kcr.KcrKt"
+
+sourceSets {
+    deploy
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven { url "https://kotlin.bintray.com/kotlinx" }
+}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.apache.kafka:kafka-clients:2.2.0"
+    compile "org.slf4j:slf4j-simple:1.7.9"
+    compile "org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.11.0"
+
+    implementation "com.github.ajalt:clikt:1.7.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
+
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
+test {
+    useJUnitPlatform()
+}
+
+dependencies {
+    testImplementation 'io.kotlintest:kotlintest-runner-junit5:3.3.2'
+}
+
+//test.testClassesDir = project.tasks.compileTestKotlin.destinationDir
+//
+//task wrapper(type: Wrapper) {
+//    gradleVersion="5.4"
+//}
+
+ext {
+    moduleName = 'com.nordstrom.kafka.kcr'
+    moduleLaunchPoint = mainClassName
+}
+task jlink(type: Exec, dependsOn: ['clean', 'jar']) {
+    def javaHome = System.properties.'java.home'
+
+    workingDir 'build'
+
+    commandLine "${javaHome}/bin/jlink",
+            '--module-path', "libs${File.pathSeparatorChar}${javaHome}/jmods",
+            '--strip-debug', '--no-header-files', '--no-man-pages', '--compress', '2',
+            '--add-modules', "${moduleName}",
+            '--launcher', "launch=${moduleName}/${moduleLaunchPoint}",
+            '--output', 'dist'
+}
