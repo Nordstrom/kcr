@@ -5,6 +5,7 @@ import com.nordstrom.kafka.kcr.io.Sink
 import com.nordstrom.kafka.kcr.io.SinkFactory
 import com.nordstrom.kafka.kcr.io.Source
 import com.nordstrom.kafka.kcr.io.SourceFactory
+import org.slf4j.LoggerFactory
 import java.lang.IllegalArgumentException
 import java.text.SimpleDateFormat
 import java.util.*
@@ -12,11 +13,13 @@ import java.util.*
 class Cassette(
     val dataDirectory: String?,
     val topic: String? = null,
-    val tracks: Int? = 1,
+    val partitions: Int? = 1,
     val sourceFactory: SourceFactory? = null,
     val sinkFactory: SinkFactory? = null
 ) {
-    val id = AlphaNumKeyGenerator().key(8)
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    private val id = AlphaNumKeyGenerator().key(8)
 
     lateinit var cassetteDir: String
     lateinit var cassetteName: String
@@ -27,13 +30,15 @@ class Cassette(
     init {
         when {
             topic.isNullOrBlank() -> throw IllegalArgumentException("Topic cannot be null or blank")
-            tracks!! <= 0 -> throw IllegalArgumentException("Number of tracks must be > 0")
+            partitions!! <= 0 -> throw IllegalArgumentException("Number of partitions must be > 0")
             sinkFactory == null -> throw IllegalArgumentException("Must have a concrete SinkFactory")
 //            sourceFactory == null -> throw IllegalArgumentException("Must have a concrete SourceFactory")
         }
+        log.trace(".init.ok")
     }
 
     fun create() {
+        log.trace(".create")
         val dateFormat = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")
         val nowish = Date()
@@ -46,22 +51,24 @@ class Cassette(
             directory = cassetteDir,
             id = id,
             name = cassetteName,
-            partitions = tracks!!,
+            partitions = partitions!!,
             topic = topic!!
         )
 
-        // Create sinks for each track
-        for (t in 0 until tracks!!) {
-            val trackName = "$topic-$t"
-            val track = sinkFactory.create(cassetteDir, trackName)
-            sinks.add(track)
+        // Create a sink for each partition
+        for (partition in 0 until partitions) {
+            val partitionName = "$topic-$partition"
+            val sink = sinkFactory.create(cassetteDir, partitionName)
+            sinks.add(sink)
         }
 
-        // Create sources for each track
-        for (t in 0 until tracks) {
-            val track = sourceFactory?.create(t)
-            sources.add(track)
+        // Create a source for each partition
+        for (partition in 0 until partitions) {
+            val source = sourceFactory?.create(partition)
+            sources.add(source)
         }
+
+        log.trace("create.ok")
     }
 
 }

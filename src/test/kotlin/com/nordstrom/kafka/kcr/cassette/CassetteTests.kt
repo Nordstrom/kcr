@@ -27,25 +27,25 @@ class CassetteTests : StringSpec({
         exception.message shouldContain ("Topic cannot be null or blank")
     }
 
-    "Cassette tracks must be > 0" {
+    "Cassette partitions must be > 0" {
         val exception = shouldThrow<IllegalArgumentException> {
-            Cassette(topic = keyGen.key(8), tracks = 0, dataDirectory = null)
+            Cassette(topic = keyGen.key(8), partitions = 0, dataDirectory = null)
         }
-        exception.message shouldContain ("Number of tracks must be > 0")
+        exception.message shouldContain ("Number of partitions must be > 0")
     }
 
     "Can instantiate a Cassette" {
         val topic = keyGen.key(8)
         val cassette =
-            Cassette(topic = topic, tracks = 55, sinkFactory = NullSinkFactory(), dataDirectory = folder.absolutePath)
+            Cassette(topic = topic, partitions = 55, sinkFactory = NullSinkFactory(), dataDirectory = folder.absolutePath)
         cassette.topic.shouldBe(topic)
-        cassette.tracks.shouldBe(55)
+        cassette.partitions.shouldBe(55)
     }
 
     "Can create a FileSink Cassette" {
         val topic = keyGen.key(8)
         val cassette =
-            Cassette(topic = topic, tracks = 2, sinkFactory = FileSinkFactory(), dataDirectory = folder.absolutePath)
+            Cassette(topic = topic, partitions = 2, sinkFactory = FileSinkFactory(), dataDirectory = folder.absolutePath)
         cassette.create()
         File(cassette.cassetteDir).isDirectory.shouldBe(true)
         File(cassette.cassetteDir, "$topic-0").isFile.shouldBe(true)

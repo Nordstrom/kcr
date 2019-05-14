@@ -1,8 +1,11 @@
 package com.nordstrom.kafka.kcr.io
 
+import org.slf4j.LoggerFactory
 import java.io.File
 
 class FileSink(var parent: String? = null, var name: String?) : Sink {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     override var path: String
         get() = file.absolutePath
         set(value) {}
@@ -10,6 +13,7 @@ class FileSink(var parent: String? = null, var name: String?) : Sink {
     val file: File
 
     init {
+        log.trace(".init")
         if (parent.isNullOrBlank()) {
             file = File(parent, name)
             val isFileCreated = file.createNewFile()
@@ -27,6 +31,7 @@ class FileSink(var parent: String? = null, var name: String?) : Sink {
                 throw FileAlreadyExistsException(file)
             }
         }
+        log.trace(".init.ok:file=${file.absolutePath}")
     }
 
     override fun writeText(text: String) {

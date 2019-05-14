@@ -4,15 +4,18 @@ import com.nordstrom.kafka.kcr.io.Source
 import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.*
 
 class KafkaSource(
     config: Properties,
     val topic: String,
-    val partitionNumber: Int
+    private val partitionNumber: Int
 ) : Source {
-    val client: KafkaConsumer<String, String>
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    private val client: KafkaConsumer<String, String>
     private val consumerConfig: Properties = Properties()
 
     init {
@@ -22,6 +25,8 @@ class KafkaSource(
         consumerConfig["enable.auto.commit"] = "true"
 
         client = KafkaConsumer<String, String>(consumerConfig)
+
+        log.trace(".init.ok")
     }
 
     override fun readBytes(): ByteArray {

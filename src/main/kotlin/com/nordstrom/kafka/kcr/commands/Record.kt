@@ -9,27 +9,16 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.nordstrom.kafka.kcr.cassette.Cassette
 import com.nordstrom.kafka.kcr.io.FileSinkFactory
 import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
-import com.nordstrom.kafka.kcr.kafka.KafkaSource
 import com.nordstrom.kafka.kcr.kafka.KafkaSourceFactory
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import sun.misc.Signal
 import sun.misc.SignalHandler
-import java.time.Duration
 import java.util.*
-import kotlinx.serialization.*
-import kotlinx.serialization.json.Json
 
 class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a cassette.") {
-//    @Serializable
-//    class CassetteRecord(
-//        val headers: MutableMap<String, String> = mutableMapOf<String, String>(),
-//        val timestamp: Long,
-//        val partition: Int,
-//        val offset: Long,
-//        val key: String?,
-//        val value: String
-//    )
+    private val log = LoggerFactory.getLogger(javaClass)
 
     // Record options
     private val dataDirectory by option(help = "Kafka Cassette Recorder data directory for recording (default=./data)")
@@ -51,7 +40,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
 
     override fun run() {
-        // Describe topic to get number of partitions (tracks) to record.
+        log.trace(".run")
+        // Describe topic to get number of partitions to record.
         val client = KafkaAdminClient(opts)
         val numberPartitions = client.numberPartitions(topic)
 
@@ -61,7 +51,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         val cassette =
             Cassette(
                 topic = topic,
-                tracks = numberPartitions,
+                partitions = numberPartitions,
                 sourceFactory = sourceFactory,
                 sinkFactory = sinkFactory,
                 dataDirectory = dataDirectory
@@ -91,6 +81,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         while (true) {
             Thread.sleep(500L)
         }
+
+        log.trace(".run.ok")
     }
 
 }
