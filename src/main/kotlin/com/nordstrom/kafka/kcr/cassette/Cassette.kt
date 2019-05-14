@@ -16,12 +16,11 @@ class Cassette(
     val sourceFactory: SourceFactory? = null,
     val sinkFactory: SinkFactory? = null
 ) {
-
     val id = AlphaNumKeyGenerator().key(8)
 
     lateinit var cassetteDir: String
     lateinit var cassetteName: String
-    lateinit var manifest: Sink
+    lateinit var manifest: CassetteManifest
     var sinks: MutableList<Sink?> = mutableListOf<Sink?>()
     var sources: MutableList<Source?> = mutableListOf<Source?>()
 
@@ -42,22 +41,24 @@ class Cassette(
         cassetteDir = "$dataDirectory/$cassetteName"
 
         // Create manifest
-        manifest = sinkFactory?.create(cassetteDir, "$topic.manifest")!!
-        manifest.writeText("---\n")
-        manifest.writeText("version:0.1\n")
-        manifest.writeText("id:$id\n")
-        manifest.writeText("topic:$topic\n")
-        manifest.writeText("partitions=$tracks\n")
+        manifest = CassetteManifest(
+            sinkFactory = sinkFactory!!,
+            directory = cassetteDir,
+            id = id,
+            name = cassetteName,
+            partitions = tracks!!,
+            topic = topic!!
+        )
 
         // Create sinks for each track
         for (t in 0 until tracks!!) {
             val trackName = "$topic-$t"
-            val track = sinkFactory?.create(cassetteDir, trackName)
+            val track = sinkFactory.create(cassetteDir, trackName)
             sinks.add(track)
         }
 
         // Create sources for each track
-        for (t in 0 until tracks){
+        for (t in 0 until tracks) {
             val track = sourceFactory?.create(t)
             sources.add(track)
         }

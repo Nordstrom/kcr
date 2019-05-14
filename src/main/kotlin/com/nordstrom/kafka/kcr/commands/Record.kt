@@ -21,16 +21,15 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
 
 class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a cassette.") {
-    @Serializable
-    class CassetteRecord(
-        val headers: MutableMap<String, String> = mutableMapOf<String, String>(),
-        val timestamp: Long,
-        val partition: Int,
-        val offset: Long,
-        val key: String?,
-        val value: String
-    ) {
-    }
+//    @Serializable
+//    class CassetteRecord(
+//        val headers: MutableMap<String, String> = mutableMapOf<String, String>(),
+//        val timestamp: Long,
+//        val partition: Int,
+//        val offset: Long,
+//        val key: String?,
+//        val value: String
+//    )
 
     // Record options
     private val dataDirectory by option(help = "Kafka Cassette Recorder data directory for recording (default=./data)")
@@ -52,13 +51,11 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
 
     override fun run() {
-        println(".kcr-record.run.")
-
         // Describe topic to get number of partitions (tracks) to record.
         val client = KafkaAdminClient(opts)
         val numberPartitions = client.numberPartitions(topic)
 
-        // Create a cassette and start recorder (threads) to begin recording topic messages
+        // Create a cassette and start recording topic messages
         val sinkFactory = FileSinkFactory()
         val sourceFactory = KafkaSourceFactory(opts, topic, groupId)
         val cassette =
@@ -71,30 +68,14 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             )
         cassette.create()
 
+        // Launch a Recorder co-routine for each partition. Each has a source and sink.  A Recorder reads records
+        // from the source and writes to the sink.
         for (partitionNumber in 0 until numberPartitions) {
+            val source = cassette.sources[partitionNumber]
+            val sink = cassette.sinks[partitionNumber]
+            val recorder = Recorder(source, sink)
             GlobalScope.launch {
-                val source = cassette.sources[partitionNumber]
-                val sink = cassette.sinks[partitionNumber]
-                if (source is KafkaSource) {
-                    source.assign()
-                    while (true) {
-                        val records = source.poll(Duration.ofSeconds(20))
-                        records?.iterator()?.forEach {
-                            val record = CassetteRecord(
-                                timestamp = it.timestamp(),
-                                partition = it.partition(),
-                                offset = it.offset(),
-                                key = it.key(),
-                                value = it.value()
-                            )
-                            it.headers().forEach { header ->
-                                record.headers[header.key()] = String(header.value())
-                            }
-                            val data = Json.stringify(CassetteRecord.serializer(), record)
-                            sink?.writeText("$data\n")
-                        }
-                    }
-                }
+                recorder.record()
             }
         }
 
