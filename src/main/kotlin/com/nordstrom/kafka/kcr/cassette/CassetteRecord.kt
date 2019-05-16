@@ -1,6 +1,7 @@
 package com.nordstrom.kafka.kcr.cassette
 
 import kotlinx.serialization.Serializable
+import java.time.Instant
 
 @Serializable
 class CassetteRecord(

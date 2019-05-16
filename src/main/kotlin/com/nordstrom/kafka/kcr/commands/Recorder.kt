@@ -34,6 +34,8 @@ class Recorder(
                     val data = Json.stringify(CassetteRecord.serializer(), record)
                     sink?.writeText("$data\n")
                     log.trace(".record:$data")
+//                    val ts = Date(it.timestamp())
+//                    log.trace(".record:timestamp:${ts.toInstant()}")
                 }
             }
         }

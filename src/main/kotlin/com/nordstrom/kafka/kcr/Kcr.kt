@@ -37,13 +37,13 @@ class Kcr : CliktCommand(
 
         if (securityProtocol.startsWith("SASL")) {
             saslMechanism?.let {
-              opts["sasl.mechanism"] = saslMechanism
+                opts["sasl.mechanism"] = saslMechanism
             }
 
             opts["sasl.jaas.config"] = when (saslMechanism) {
-              "PLAIN" -> "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
-              "SCRAM-SHA-256", "SCRAM-SHA-512" -> "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
-              else -> "" // Not supported
+                "PLAIN" -> "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
+                "SCRAM-SHA-256", "SCRAM-SHA-512" -> "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${saslUsername}\" password=\"${saslPassword}\";"
+                else -> "" // Not supported
             }
         }
     }

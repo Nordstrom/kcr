@@ -46,13 +46,15 @@ class Cassette(
         cassetteDir = "$dataDirectory/$cassetteName"
 
         // Create manifest
+        //TODO use snakeyaml
         manifest = CassetteManifest(
             sinkFactory = sinkFactory!!,
             directory = cassetteDir,
             id = id,
             name = cassetteName,
             partitions = partitions!!,
-            topic = topic!!
+            topic = topic!!,
+            start = Date().toInstant()
         )
 
         // Create a sink for each partition

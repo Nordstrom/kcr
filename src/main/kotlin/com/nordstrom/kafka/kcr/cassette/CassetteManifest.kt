@@ -2,6 +2,7 @@ package com.nordstrom.kafka.kcr.cassette
 
 import com.nordstrom.kafka.kcr.io.SinkFactory
 import org.slf4j.LoggerFactory
+import java.time.Instant
 
 class CassetteManifest(
     sinkFactory: SinkFactory,
@@ -9,7 +10,8 @@ class CassetteManifest(
     id: String,
     name: String,
     partitions: Int,
-    topic: String
+    topic: String,
+    start: Instant
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -24,6 +26,7 @@ class CassetteManifest(
         manifest?.writeText("partitions:$partitions\n")
         manifest?.writeText("topic:$topic\n")
         manifest?.writeText("version:${CassetteVersion.VERSION}\n")
+        manifest?.writeText("start:${start}")
 
         log.trace(".init.ok")
     }
