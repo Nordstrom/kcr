@@ -1,4 +1,5 @@
 module com.nordstrom.kafka.kcr {
+
     requires clikt;
 
     requires jdk.unsupported;
@@ -9,5 +10,7 @@ module com.nordstrom.kafka.kcr {
 
     requires kotlinx.coroutines.core;
     requires kotlinx.serialization.runtime;
+
+    requires slf4j.api;
 
 }

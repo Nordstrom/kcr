@@ -5,13 +5,17 @@ import com.nordstrom.kafka.kcr.io.Sink
 import com.nordstrom.kafka.kcr.io.Source
 import com.nordstrom.kafka.kcr.kafka.KafkaSource
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import java.time.Duration
 
 class Recorder(
     private val source: Source?,
     val sink: Sink?
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     fun record() {
+        log.trace(".record")
         if (source is KafkaSource) {
             source.assign()
             while (true) {
@@ -29,9 +33,11 @@ class Recorder(
                     }
                     val data = Json.stringify(CassetteRecord.serializer(), record)
                     sink?.writeText("$data\n")
+                    log.trace(".record:$data")
                 }
             }
         }
+        log.trace(".record.ok")
     }
 
 }
