@@ -13,6 +13,6 @@ module com.nordstrom.kafka.kcr {
 
     requires slf4j.api;
 
-    requires snakeyaml;
+//    requires snakeyaml;
 
 }

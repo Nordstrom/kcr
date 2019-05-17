@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.nordstrom.kafka.kcr.cassette.CassetteVersion
 import com.nordstrom.kafka.kcr.commands.Play
 import com.nordstrom.kafka.kcr.commands.Record
+import com.nordstrom.kafka.kcr.facilities.AlphaNumKeyGenerator
 import java.util.*
 
 
@@ -46,6 +47,9 @@ class Kcr : CliktCommand(
                 else -> "" // Not supported
             }
         }
+
+        //TODO propagate unique execution-run id to Play, Record (Cassette)
+        opts["kcr.id"] = AlphaNumKeyGenerator().key(8)
     }
 }
 

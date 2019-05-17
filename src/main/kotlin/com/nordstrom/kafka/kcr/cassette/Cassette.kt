@@ -1,12 +1,10 @@
 package com.nordstrom.kafka.kcr.cassette
 
-import com.nordstrom.kafka.kcr.facilities.AlphaNumKeyGenerator
 import com.nordstrom.kafka.kcr.io.Sink
 import com.nordstrom.kafka.kcr.io.SinkFactory
 import com.nordstrom.kafka.kcr.io.Source
 import com.nordstrom.kafka.kcr.io.SourceFactory
 import org.slf4j.LoggerFactory
-import java.lang.IllegalArgumentException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -19,7 +17,7 @@ class Cassette(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val id = AlphaNumKeyGenerator().key(8)
+//    private val id = AlphaNumKeyGenerator().key(8)
 
     lateinit var cassetteDir: String
     lateinit var cassetteName: String
@@ -37,7 +35,7 @@ class Cassette(
         log.trace(".init.ok")
     }
 
-    fun create() {
+    fun create(id: String) {
         log.trace(".create")
         val dateFormat = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")

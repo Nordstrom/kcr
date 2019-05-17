@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+TOPIC=$1
+CASSETTE=$2
+
+echo "Playback $CASSETTE to topic $TOPIC"
+gradle run --args="play --cassette $CASSETTE --topic $TOPIC"

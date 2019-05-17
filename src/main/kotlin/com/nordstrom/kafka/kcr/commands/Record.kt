@@ -41,13 +41,18 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
     override fun run() {
         log.trace(".run")
+        // Remove non-kakfa properties
+        val cleanOpts = Properties()
+        cleanOpts.putAll(opts)
+        cleanOpts.remove("kcr.id")
+
         // Describe topic to get number of partitions to record.
-        val client = KafkaAdminClient(opts)
-        val numberPartitions = client.numberPartitions(topic)
+        val admin = KafkaAdminClient(cleanOpts)
+        val numberPartitions = admin.numberPartitions(topic)
 
         // Create a cassette and start recording topic messages
         val sinkFactory = FileSinkFactory()
-        val sourceFactory = KafkaSourceFactory(opts, topic, groupId)
+        val sourceFactory = KafkaSourceFactory(cleanOpts, topic, groupId)
         val cassette =
             Cassette(
                 topic = topic,
@@ -56,7 +61,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
                 sinkFactory = sinkFactory,
                 dataDirectory = dataDirectory
             )
-        cassette.create()
+        cassette.create("${opts["kcr.id"]}")
 
         // Launch a Recorder co-routine for each partition. Each has a source and sink.  A Recorder reads records
         // from the source and writes to the sink.

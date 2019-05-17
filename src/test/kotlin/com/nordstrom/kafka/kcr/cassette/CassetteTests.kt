@@ -46,7 +46,7 @@ class CassetteTests : StringSpec({
         val topic = keyGen.key(8)
         val cassette =
             Cassette(topic = topic, partitions = 2, sinkFactory = FileSinkFactory(), dataDirectory = folder.absolutePath)
-        cassette.create()
+        cassette.create(keyGen.key(8))
         File(cassette.cassetteDir).isDirectory.shouldBe(true)
         File(cassette.cassetteDir, "$topic-0").isFile.shouldBe(true)
         File(cassette.cassetteDir, "$topic-1").isFile.shouldBe(true)

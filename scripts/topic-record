@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+TOPIC=$1
+echo "recording $TOPIC"
+
+gradle run --args="record --topic $TOPIC"

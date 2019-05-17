@@ -35,7 +35,7 @@ dependencies {
     compile "org.apache.kafka:kafka-clients:2.2.0"
     compile "org.slf4j:slf4j-simple:1.7.9"
     compile "org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.11.0"
-    compile "org.yaml:snakeyaml:1.23"
+//    compile "org.yaml:snakeyaml:1.23"
 
     implementation "com.github.ajalt:clikt:1.7.0"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"

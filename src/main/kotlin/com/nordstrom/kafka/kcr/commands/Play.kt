@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.float
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
+import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
@@ -16,16 +17,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.StringSerializer
 import org.slf4j.LoggerFactory
-import org.yaml.snakeyaml.Yaml
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStream
-import java.nio.charset.Charset
 import java.time.Duration
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.*
 
@@ -38,11 +35,10 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         .validate {
             require(!it.isEmpty()) { "'cassette' value cannot be empty or null" }
         }
-//    private val playbackRate: Float by option(help = "Playback rate multiplier (1.0 = play at capture rate, 2.0 = playback at twice capture rate)").float().default(
-//        1.0f
-//    )
     //NB: This initial version can only playback at the capture rate.
-    private val playbackRate = 1.0f
+    private val playbackRate: Float by option(help = "Playback rate multiplier (1.0 = play at capture rate, 2.0 = playback at twice capture rate)").float().default(
+        1.0f
+    )
 
     private val topic by option(help = "Kafka topic to record (REQUIRED)")
         .required()
@@ -51,11 +47,19 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         }
 
     // Global options from parent command.
-    private val opts by requireObject<Map<String, Properties?>>()
-
+    private val opts by requireObject<Properties>()
 
     override fun run() {
         log.trace("run")
+        val id = opts["kcr.id"]
+
+        // Describe topic to get number of partitions to record.
+        val adminConfig = Properties()
+        adminConfig.putAll(opts)
+        adminConfig.remove("kcr.id")
+        val admin = KafkaAdminClient(adminConfig)
+        val numberPartitions = admin.numberPartitions(topic)
+
         val now = Date().toInstant()
 
         val filelist = File(cassette).list()
@@ -79,6 +83,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         // to determine correct playback time.
         val offsetNanos = ChronoUnit.NANOS.between(start, now)
 
+        val producerConfig = Properties()
+        producerConfig.putAll(opts)
+        producerConfig.remove("kcr.id")
+        producerConfig["key.serializer"] = StringSerializer::class.java.canonicalName
+        producerConfig["value.serializer"] = StringSerializer::class.java.canonicalName
+        producerConfig["client.id"] = "kcr-$topic-cid-$id]}"
+
+        val client: KafkaProducer<String, String> = KafkaProducer<String, String>(producerConfig)
+
         runBlocking {
             for (fileName in filelist) {
                 // Skip manifest file
@@ -87,7 +100,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                     // Play records as separate jobs
                     launch {
                         records.consumeEach { record ->
-                            play(record, offsetNanos)
+                            play(client, record, offsetNanos)
                         }
                     }
                 }
@@ -104,13 +117,14 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                 // We use json format for now, but will need to write/read bytes to accommodate
                 // any kind of payload in the topic.
                 val record = Json.parse(CassetteRecord.serializer(), line)
+                //TODO adjust timestamp to control playback rate?
                 send(record)
             }
         }
     }
 
     // Plays a record (writes to target Kafka topic)
-    private suspend fun play(record: CassetteRecord, offsetNanos: Long) {
+    private suspend fun play(client: KafkaProducer<String, String>, record: CassetteRecord, offsetNanos: Long) {
         val ts = Date(record.timestamp).toInstant()
         val now = Date().toInstant()
         val whenToSend = ts.plusNanos(offsetNanos)
@@ -118,13 +132,24 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
         var millis = when (playbackRate > 0.0) {
             true -> (wait.toMillis().toFloat() / playbackRate).toLong()
-            false -> 0
+            //NB: playbackRate == 0, records will not be written in capture order.
+            false -> 0L
         }
 
 //        log.trace("n:wait=$wait, ${wait.toMillis()}, ${millis} from now=$now")
         //NB: millisecond resolution!
         delay(millis)
-        log.trace("play: -> ts=${record.timestamp}, partition:offset=${record.partition}:${record.offset} ${record.value}")
+        //TODO map record.partition to target topic partition in round-robin fashion.
+        val producerRecord = ProducerRecord<String, String>(topic, record.partition, record.key, record.value)
+        val future = client.send(producerRecord)
+        val result = future.get()
+//        log.trace("played($playbackRate): -> ts=${record.timestamp}, partition:offset=${record.partition}:${record.offset} ${record.value}")
+//        log.trace("played:part=${result.partition()}, offs=${result.offset()}, ts=${result.timestamp()}, top=${result.topic()}")
+    }
+
+    //TODO
+    private fun mapPartition(partition: Int, numberPartitions: Int): Int {
+        return partition % numberPartitions
     }
 
 }

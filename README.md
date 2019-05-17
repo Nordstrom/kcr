@@ -82,3 +82,18 @@ with 5 message/sec, playback will also be at 5 message/sec)
 ```
 gradle run --args="playback --cassette data/my-topic-yyyymmdd_hhmm
 ```
+
+### Helper scripts
+
+```
+./scripts/topic-record <TOPIC>
+
+#e.g., ./scripts/topic-record sea-of-time
+```
+
+```
+./scripts/topic-playback <TARGET_TOPIC> <CASSETTE_DIR>
+
+#e.g., ./scripts/topic-playback sea-of-science ./data/kcr-sea-of-time-20190517-1708
+```
+
