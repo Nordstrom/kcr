@@ -1,0 +1,7 @@
+ #!/usr/bin/env bash
+
+ $CP/bin/kafka-topics --zookeeper localhost:2181 --create --partitions=5 --replication-factor=1 --topic sea-of-time
+ $CP/bin/kafka-topics --zookeeper localhost:2181 --create --partitions=5 --replication-factor=1 --topic sea-of-science
+ $CP/bin/kafka-topics --zookeeper localhost:2181 --create --partitions=10 --replication-factor=1 --topic sea-of-holes
+ $CP/bin/kafka-topics --zookeeper localhost:2181 --create --partitions=10 --replication-factor=1 --topic sea-of-monsters
+ $CP/bin/kafka-topics --zookeeper localhost:2181 --list

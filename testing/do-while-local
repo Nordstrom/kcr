@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# Write messages w/key at 1 m/s to local kafka cluster topic using kafkacat
+
+TOPIC=${1}
+
+key=0
+while :
+do
+  now=`date`
+  echo "$key|{\"hola-brook\":\"$now\"}" | kafkacat -b localhost:9092 -K '|' -H "now=$now" -P -t ${TOPIC}
+  sleep 1
+  key=$((key+1))
+done

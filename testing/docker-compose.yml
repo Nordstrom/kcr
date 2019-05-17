@@ -1,0 +1,88 @@
+version: "3"
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.1.2
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+    - 2181:2181
+    logging: { driver: none }
+
+  broker:
+    build: ./broker/
+    #image: confluentinc/cp-kafka:5.1.2
+    ports:
+    - 9092:9092
+    - 9011:9011
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "PUBLIC://0.0.0.0:9092,INTERNAL://0.0.0.0:19092"
+      KAFKA_ADVERTISED_LISTENERS: "PUBLIC://localhost:9092,INTERNAL://broker:19092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PUBLIC:PLAINTEXT,INTERNAL:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+      KAFKA_NUM_PARTITIONS: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 10
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_PRINCIPAL_BUILDER_CLASS: "com.nordstrom.kafka.security.auth.RegexPrincipalBuilder"
+      # Regex to derive principal following 'slash-path' naming convention of <principal>/<uid>
+      KAFKA_PRINCIPAL_BUILDER_REGEX: "(.+)/.+"
+      # Uncomment to debug authorization.
+      # KAFKA_LOG4J_LOGGERS: "kafka.authorizer.logger=DEBUG,com.nordstrom.kafka.security.auth=DEBUG"
+    depends_on: [zookeeper]
+
+  schema-registry:
+    build: ./schema-registry/
+    #image: confluentinc/cp-schema-registry:5.1.2
+    hostname: schema-registry
+    ports:
+    - 8080:8080
+    - 9012:9011
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8080"
+
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://broker:19092"
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: __schemas
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_KAFKASTORE_TIMEOUT_MS: 15000
+    depends_on: [broker]
+
+  connect:
+    build: ./connect/
+    #image: confluentinc/cp-kafka-connect:5.1.2
+    ports:
+    - 8083:8083
+    - 9013:9011
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: broker:19092
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_GROUP_ID: connect
+      CONNECT_CONFIG_STORAGE_TOPIC: __connect_configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_TOPIC: __connect_offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: __connect_status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+  
+      # CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_PLUGIN_PATH: /opt/connectors
+
+      # Uncomment to have access to AWS resources such as SQS queues.
+      #AWS_REGION: ${AWS_REGION}
+      #AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      #AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      #AWS_SECURITY_TOKEN: ${AWS_SECURITY_TOKEN}
+      #AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+    volumes:
+      - ${HOME}/.aws:/usr/share/aws
+    depends_on: [broker]

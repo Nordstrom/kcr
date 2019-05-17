@@ -97,3 +97,9 @@ gradle run --args="playback --cassette data/my-topic-yyyymmdd_hhmm
 #e.g., ./scripts/topic-playback sea-of-science ./data/kcr-sea-of-time-20190517-1708
 ```
 
+# Testing
+
+The `./testing` directory has a `docker-compose.yml` that will start a local kafka cluster that can be used for testing.  `kcr` record/playback default to `localhost:9092`.
+
+`create-pepperland` will create several test topics using `kafka-topics.sh` (assumes $CP is defined to point to kafka distribution)
+
