@@ -16,7 +16,7 @@ apply plugin: "kotlinx-serialization"
 apply plugin: "application"
 
 group = "com.nordstrom.kafka.kcr"
-version = "0.1-alpha"
+//version = "0.1-alpha"
 
 mainClassName = "com.nordstrom.kafka.kcr.KcrKt"
 
@@ -35,10 +35,9 @@ dependencies {
     compile "org.apache.kafka:kafka-clients:2.2.0"
     compile "org.slf4j:slf4j-simple:1.7.9"
     compile "org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.11.0"
-//    compile "org.yaml:snakeyaml:1.23"
 
-    implementation "com.github.ajalt:clikt:1.7.0"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
+    compile "com.github.ajalt:clikt:1.7.0"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
 
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
@@ -77,4 +76,13 @@ task jlink(type: Exec, dependsOn: ['clean', 'jar']) {
             '--add-modules', "${moduleName}",
             '--launcher', "launch=${moduleName}/${moduleLaunchPoint}",
             '--output', 'dist'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+
+    // NEW LINE HERE !!!
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
 }

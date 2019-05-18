@@ -15,7 +15,6 @@ class Recorder(
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun record() {
-        log.trace(".record")
         if (source is KafkaSource) {
             source.assign()
             while (true) {
@@ -34,12 +33,9 @@ class Recorder(
                     val data = Json.stringify(CassetteRecord.serializer(), record)
                     sink?.writeText("$data\n")
                     log.trace(".record:$data")
-//                    val ts = Date(it.timestamp())
-//                    log.trace(".record:timestamp:${ts.toInstant()}")
                 }
             }
         }
-        log.trace(".record.ok")
     }
 
 }

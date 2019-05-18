@@ -40,7 +40,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
 
     override fun run() {
-        log.trace(".run")
+        val startTime = System.currentTimeMillis()
+
         // Remove non-kakfa properties
         val cleanOpts = Properties()
         cleanOpts.putAll(opts)
@@ -75,7 +76,6 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         }
 
         // Handle ctrl-c
-        val startTime = System.currentTimeMillis()
         Signal.handle(Signal("INT"), object : SignalHandler {
             override fun handle(sig: Signal) {
                 val elapsed = (System.currentTimeMillis() - startTime) / 1000.0
@@ -86,8 +86,6 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         while (true) {
             Thread.sleep(500L)
         }
-
-        log.trace(".run.ok")
     }
 
 }

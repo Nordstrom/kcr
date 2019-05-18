@@ -3,4 +3,4 @@
 TOPIC=$1
 echo "recording $TOPIC"
 
-gradle run --args="record --topic $TOPIC"
+java -jar build/libs/kcr.jar record --topic $TOPIC

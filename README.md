@@ -60,27 +60,33 @@ Options:
 
 ## Running the program
 
+### Build it first
+
+```
+gradle clean build
+```
+
+
 ### Recording
 
 Create a recording from a simple, local cluster:
 
 ```
-gradle run --args="record --topic $MY_TOPIC --data-directory data"
+java -jar ./build/libs/kcr.jar record --topic $MY_TOPIC --data-directory data
 ```
 
 Create a recording from secure cluster, like Confluent Cloud:
 
 ```
-gradle run --args="--bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic $MY_TOPIC --data-directory data"
+java -jar ./build/libs/kcr.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic $MY_TOPIC --data-directory data
 ```
 
 ### Playback (wip)
 
-Currently only writes record to console log.  Playback is at the capture rate of the cassette (i.e., if you recorded a stream
-with 5 message/sec, playback will also be at 5 message/sec)
+Playback is at the capture rate of the cassette (i.e., if you recorded a stream with 5 message/sec, playback will also be at 5 message/sec)
 
 ```
-gradle run --args="playback --cassette data/my-topic-yyyymmdd_hhmm
+java -jar playback --cassette data/my-topic-yyyymmdd_hhmm
 ```
 
 ### Helper scripts

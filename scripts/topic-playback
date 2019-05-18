@@ -2,6 +2,6 @@
 
 TOPIC=$1
 CASSETTE=$2
-
 echo "Playback $CASSETTE to topic $TOPIC"
-gradle run --args="play --cassette $CASSETTE --topic $TOPIC"
+
+java -jar build/libs/kcr.jar play $CASSETTE --topic $TOPIC
