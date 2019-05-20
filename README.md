@@ -57,6 +57,19 @@ Options:
   -h, --help       Show this message and exit
 ```
 
+## Metrics
+
+### Record
+
+|kcr.recorder.duration-ms|Overall duration of recording session|
+|kcr.recorder.partition.duration-ms,partition=n|Duration of recording for partition 'n'|
+|kcr.recorder.partition.write-total,partition=n|Total record writes for partition 'n'|
+
+### Playback
+|kcr.player.duration-ms|Overall duration of playback session|
+|kcr.player.partition.duration-ms,partition=n|Duration of playback for partition 'n'|
+|kcr.player.partition.send-total,partition=n|Total record sends for partition 'n'|
+
 
 ## Running the program
 

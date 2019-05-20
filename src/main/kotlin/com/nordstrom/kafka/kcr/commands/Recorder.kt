@@ -15,9 +15,9 @@ class Recorder(
     val sink: Sink?
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val writes = Kcr.registry.counter("kcr.recorder.partition.write-total")
 
     fun record(partitionNumber: Int) {
+        val writes = Kcr.registry.counter("kcr.recorder.partition.write-total", "partition", "$partitionNumber")
         log.trace(".record(partition=$partitionNumber)")
         val duration = Timer.start()
         if (source is KafkaSource) {
