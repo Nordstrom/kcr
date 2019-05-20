@@ -59,7 +59,7 @@ Options:
 
 ## Metrics
 
-Metrics are output as `statsd` counters and timers using `io.micrometer`.
+Metrics are written as [io.micrometer](https://micrometer.io/docs) Timer and Counter `Meter` primitives using the [`statsd`](https://micrometer.io/docs/registry/statsD) registry.
 
 | Metric | Description|
 | :--- | :--- |
