@@ -87,13 +87,13 @@ gradle clean build
 Create a recording from a simple, local cluster:
 
 ```
-java -jar ./build/libs/kcr.jar record --topic $MY_TOPIC --data-directory data
+java -jar ./build/libs/kcr.jar record --topic my-topic --data-directory data
 ```
 
 Create a recording from secure cluster, like Confluent Cloud:
 
 ```
-java -jar ./build/libs/kcr.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic $MY_TOPIC --data-directory data
+java -jar ./build/libs/kcr.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic my-topic --data-directory data
 ```
 
 ### Playback (wip)
@@ -101,7 +101,7 @@ java -jar ./build/libs/kcr.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --secur
 Playback is at the capture rate of the cassette (i.e., if you recorded a stream with 5 message/sec, playback will also be at 5 message/sec)
 
 ```
-java -jar playback --cassette data/my-topic-yyyymmdd_hhmm
+java -jar playback --cassette data/my-topic-yyyymmdd_hhmm --topic my-topic-too
 ```
 
 ### Helper scripts
