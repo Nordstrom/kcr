@@ -167,6 +167,9 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         delay(millis)
         //TODO map record.partition to target topic partition in round-robin fashion.
         val producerRecord = ProducerRecord<String, String>(topic, record.partition, record.key, record.value)
+        for (header in record.headers) {
+            producerRecord.headers().add(header.key, header.value.toByteArray())
+        }
         val future = client.send(producerRecord)
         future.get()
     }

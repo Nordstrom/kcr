@@ -124,3 +124,8 @@ The `./testing` directory has a `docker-compose.yml` that will start a local kaf
 
 `create-pepperland` will create several test topics using `kafka-topics.sh` (assumes $CP is defined to point to kafka distribution)
 
+
+# Roadmap
+
+* Topic consumed/produces as <byte,byte> and stored as encoded bytes
+* Use `avro` for cassette format
