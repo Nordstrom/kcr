@@ -7,8 +7,9 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.float
+import com.nordstrom.kafka.kcr.Kcr
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
-import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
+import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
@@ -49,16 +50,20 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     // Global options from parent command.
     private val opts by requireObject<Properties>()
 
+
     override fun run() {
-        log.trace("run")
+        log.trace(".run")
+        val duration = Timer.start()
+        val t0 = Date().toInstant()
         val id = opts["kcr.id"]
 
         // Describe topic to get number of partitions to record.
         val adminConfig = Properties()
         adminConfig.putAll(opts)
         adminConfig.remove("kcr.id")
-        val admin = KafkaAdminClient(adminConfig)
-        val numberPartitions = admin.numberPartitions(topic)
+//        //TODO map recorded partitions to target
+//        val admin = KafkaAdminClient(adminConfig)
+//        val numberPartitions = admin.numberPartitions(topic)
 
         val now = Date().toInstant()
 
@@ -69,15 +74,21 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         // records were written by partition.
         var earliest: Long = Long.MAX_VALUE
         for (file in filelist) {
-            if (("manifest" in file).not()) {
-                val line = File(cassette, file).readLines()[0]
-                val record = Json.parse(CassetteRecord.serializer(), line)
-                if (record.timestamp < earliest) {
-                    earliest = record.timestamp
+            if ("manifest" in file) {
+                continue
+            } else {
+                val lines = File(cassette, file).readLines()
+                if (lines.isNotEmpty()) {
+                    val line = File(cassette, file).readLines()[0]
+                    @UseExperimental(kotlinx.serialization.UnstableDefault::class)
+                    val record = Json.parse(CassetteRecord.serializer(), line)
+                    if (record.timestamp < earliest) {
+                        earliest = record.timestamp
+                    }
                 }
             }
         }
-        log.trace("earliest=$earliest, ${Date(earliest)}, ${Date(earliest).toInstant()}")
+        log.trace(".run:earliest=$earliest, ${Date(earliest)}, ${Date(earliest).toInstant()}")
         val start = Date(earliest).toInstant()
         // This is the playback offset (from earliest record to now) that is added to each record's timestamp
         // to determine correct playback time.
@@ -96,7 +107,8 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             for (fileName in filelist) {
                 // Skip manifest file
                 if (("manifest" in fileName).not()) {
-                    val records = recordsProducer(fileName, offsetNanos)
+                    log.trace(".run:file=${fileName}")
+                    val records = recordsProducer(fileName)
                     // Play records as separate jobs
                     launch {
                         records.consumeEach { record ->
@@ -106,21 +118,36 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                 }
             }
         }
+        log.trace(".run.OK")
+        println("runtime ${Duration.between(t0, Date().toInstant())}")
+        duration.stop(Kcr.registry.timer("kcr.player.duration-ms"))
     }
 
     // Produces CassetteRecords by reading the partition file.
-    fun CoroutineScope.recordsProducer(fileName: String, offsetNanos: Long): ReceiveChannel<CassetteRecord> = produce {
+    fun CoroutineScope.recordsProducer(fileName: String): ReceiveChannel<CassetteRecord> = produce {
+        val partitionNumber = fileName.substringAfterLast("-")
+        val duration = Timer.start()
+        val writes = Kcr.registry.counter("kcr.player.partition.send-total", "partition", partitionNumber)
+
         val reader = File(cassette, fileName).bufferedReader()
         reader.useLines { lines ->
             lines.forEach { line ->
                 // Convert to CassetteRecord.
                 // We use json format for now, but will need to write/read bytes to accommodate
                 // any kind of payload in the topic.
+                @UseExperimental(kotlinx.serialization.UnstableDefault::class)
                 val record = Json.parse(CassetteRecord.serializer(), line)
                 //TODO adjust timestamp to control playback rate?
+                writes.increment()
                 send(record)
             }
         }
+        duration.stop(
+            Kcr.registry.timer(
+                "kcr.player.partition.duration-ms",
+                "partition", partitionNumber
+            )
+        )
     }
 
     // Plays a record (writes to target Kafka topic)
@@ -136,20 +163,17 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             false -> 0L
         }
 
-//        log.trace("n:wait=$wait, ${wait.toMillis()}, ${millis} from now=$now")
         //NB: millisecond resolution!
         delay(millis)
         //TODO map record.partition to target topic partition in round-robin fashion.
         val producerRecord = ProducerRecord<String, String>(topic, record.partition, record.key, record.value)
         val future = client.send(producerRecord)
-        val result = future.get()
-//        log.trace("played($playbackRate): -> ts=${record.timestamp}, partition:offset=${record.partition}:${record.offset} ${record.value}")
-//        log.trace("played:part=${result.partition()}, offs=${result.offset()}, ts=${result.timestamp()}, top=${result.topic()}")
+        future.get()
     }
 
     //TODO
-    private fun mapPartition(partition: Int, numberPartitions: Int): Int {
-        return partition % numberPartitions
-    }
+//    private fun mapPartition(partition: Int, numberPartitions: Int): Int {
+//        return partition % numberPartitions
+//    }
 
 }

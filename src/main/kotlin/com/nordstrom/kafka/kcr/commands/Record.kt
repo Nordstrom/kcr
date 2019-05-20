@@ -6,15 +6,18 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.validate
+import com.nordstrom.kafka.kcr.Kcr
 import com.nordstrom.kafka.kcr.cassette.Cassette
 import com.nordstrom.kafka.kcr.io.FileSinkFactory
 import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
 import com.nordstrom.kafka.kcr.kafka.KafkaSourceFactory
+import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import sun.misc.Signal
 import sun.misc.SignalHandler
+import java.time.Duration
 import java.util.*
 
 class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a cassette.") {
@@ -40,7 +43,9 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
 
     override fun run() {
-        val startTime = System.currentTimeMillis()
+        log.trace(".run")
+        val duration = Timer.start()
+        val t0 = Date().toInstant()
 
         // Remove non-kakfa properties
         val cleanOpts = Properties()
@@ -71,21 +76,27 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             val sink = cassette.sinks[partitionNumber]
             val recorder = Recorder(source, sink)
             GlobalScope.launch {
-                recorder.record()
+                recorder.record(partitionNumber)
             }
         }
 
         // Handle ctrl-c
+        log.trace(".run.wait-for-sigint")
         Signal.handle(Signal("INT"), object : SignalHandler {
             override fun handle(sig: Signal) {
-                val elapsed = (System.currentTimeMillis() - startTime) / 1000.0
-                println("\nruntime $elapsed seconds")
+                println("\nruntime ${Duration.between(t0, Date().toInstant())}")
+                duration.stop(
+                    Kcr.registry.timer(
+                        "kcr.recorder.duration-ms"
+                    )
+                )
                 System.exit(0)
             }
         })
         while (true) {
             Thread.sleep(500L)
         }
+
     }
 
 }

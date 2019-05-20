@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-TOPIC=$1
-CASSETTE=$2
-echo "Playback $CASSETTE to topic $TOPIC"
-
-java -jar build/libs/kcr.jar play $CASSETTE --topic $TOPIC

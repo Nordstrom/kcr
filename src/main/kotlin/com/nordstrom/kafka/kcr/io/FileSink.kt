@@ -8,7 +8,7 @@ class FileSink(var parent: String? = null, var name: String?) : Sink {
 
     override var path: String
         get() = file.absolutePath
-        set(value) {}
+        set(_) {}
 
     val file: File
 

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-TOPIC=$1
-echo "recording $TOPIC"
-
-java -jar build/libs/kcr.jar record --topic $TOPIC

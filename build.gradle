@@ -16,7 +16,6 @@ apply plugin: "kotlinx-serialization"
 apply plugin: "application"
 
 group = "com.nordstrom.kafka.kcr"
-//version = "0.1-alpha"
 
 mainClassName = "com.nordstrom.kafka.kcr.KcrKt"
 
@@ -39,12 +38,16 @@ dependencies {
     compile "com.github.ajalt:clikt:1.7.0"
     compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
 
+    compile "io.micrometer:micrometer-registry-statsd:latest.release"
+
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions {
         jvmTarget = "11"
+        //NB: Need this for kotlinx-serialization
+        freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
     }
 }
 test {
@@ -82,7 +85,5 @@ jar {
     manifest {
         attributes 'Main-Class': mainClassName
     }
-
-    // NEW LINE HERE !!!
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
 }

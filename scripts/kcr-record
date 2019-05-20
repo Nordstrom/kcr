@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+TOPIC=$1
+echo "recording $TOPIC"
+
+#needed to enable monitoring tools (jconsole, visualvm, etc)
+OPTS="-Djava.rmi.server.hostname=127.0.0.1"
+java $OPTS -jar build/libs/kcr.jar record --topic $TOPIC
