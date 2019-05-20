@@ -53,7 +53,7 @@ Usage: kcr play [OPTIONS]
 
 Options:
   --cassette TEXT  Kafka Cassette Recorder directory for playback (REQUIRED)
-  --topic TEXT     Kafka topic to record (REQUIRED)
+  --topic TEXT     Kafka topic to write (REQUIRED)
   -h, --help       Show this message and exit
 ```
 
@@ -63,13 +63,11 @@ Options:
 
 | Metric | Description|
 | :--- | :--- |
+|RECORD||
 |kcr.recorder.duration-ms|Overall duration of recording session|
 |kcr.recorder.partition.duration-ms,partition=n|Duration of recording for partition 'n'|
 |kcr.recorder.partition.write-total,partition=n|Total record writes for partition 'n'|
-
-### Playback
-| Metric | Description|
-| :--- | :--- |
+|PLAYBACK||
 |kcr.player.duration-ms|Overall duration of playback session|
 |kcr.player.partition.duration-ms,partition=n|Duration of playback for partition 'n'|
 |kcr.player.partition.send-total,partition=n|Total record sends for partition 'n'|

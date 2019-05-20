@@ -41,7 +41,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         1.0f
     )
 
-    private val topic by option(help = "Kafka topic to record (REQUIRED)")
+    private val topic by option(help = "Kafka topic to write (REQUIRED)")
         .required()
         .validate {
             require(!it.isEmpty()) { "'topic' value cannot be empty or null" }
