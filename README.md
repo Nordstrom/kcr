@@ -59,7 +59,7 @@ Options:
 
 ## Metrics
 
-### Record
+Metrics are output as `statsd` counters and timers using `io.micrometer`.
 
 | Metric | Description|
 | :--- | :--- |
