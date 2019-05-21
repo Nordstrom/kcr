@@ -15,16 +15,16 @@ class KafkaSource(
 ) : Source {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val client: KafkaConsumer<String, String>
+    private val client: KafkaConsumer<ByteArray, ByteArray>
     private val consumerConfig: Properties = Properties()
 
     init {
         consumerConfig.putAll(config)
-        consumerConfig["key.deserializer"] = STRING_DESERIALIZER
-        consumerConfig["value.deserializer"] = STRING_DESERIALIZER
+        consumerConfig["key.deserializer"] = BYTE_ARRAY_DESERIALIZER
+        consumerConfig["value.deserializer"] = BYTE_ARRAY_DESERIALIZER
         consumerConfig["enable.auto.commit"] = "true"
 
-        client = KafkaConsumer<String, String>(consumerConfig)
+        client = KafkaConsumer<ByteArray, ByteArray>(consumerConfig)
 
         log.trace(".init.ok")
     }
@@ -39,14 +39,14 @@ class KafkaSource(
         client.assign(partitions)
     }
 
-    fun poll(duration: Duration): ConsumerRecords<String, String>? {
+    fun poll(duration: Duration): ConsumerRecords<ByteArray, ByteArray>? {
         return client.poll(duration)
     }
 
 
     //TODO KafkaConstants
     companion object {
-        const val BYTE_ARRAY_DESERIALIZER = "org.apache.kafka.common.serialization.ByteArrayDesrializer"
+        const val BYTE_ARRAY_DESERIALIZER = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
         const val BYTE_ARRAY_SERIALIZER = "org.apache.kafka.common.serialization.ByteArraySerializer"
         const val STRING_DESERIALIZER = "org.apache.kafka.common.serialization.StringDeserializer"
         const val STRING_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer"

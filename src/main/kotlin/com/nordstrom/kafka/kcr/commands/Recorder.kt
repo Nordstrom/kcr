@@ -8,6 +8,7 @@ import com.nordstrom.kafka.kcr.kafka.KafkaSource
 import io.micrometer.core.instrument.Timer
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.nio.charset.Charset
 import java.time.Duration
 
 class Recorder(
@@ -29,8 +30,8 @@ class Recorder(
                         timestamp = it.timestamp(),
                         partition = it.partition(),
                         offset = it.offset(),
-                        key = it.key(),
-                        value = it.value()
+                        key = it.key().toString(Charset.defaultCharset()),
+                        value = it.value().toString(Charset.defaultCharset())
                     )
                     it.headers().forEach { header ->
                         record.headers[header.key()] = String(header.value())

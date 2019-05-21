@@ -20,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.common.serialization.StringSerializer
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -97,11 +98,11 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         val producerConfig = Properties()
         producerConfig.putAll(opts)
         producerConfig.remove("kcr.id")
-        producerConfig["key.serializer"] = StringSerializer::class.java.canonicalName
-        producerConfig["value.serializer"] = StringSerializer::class.java.canonicalName
+        producerConfig["key.serializer"] = ByteArraySerializer::class.java.canonicalName
+        producerConfig["value.serializer"] = ByteArraySerializer::class.java.canonicalName
         producerConfig["client.id"] = "kcr-$topic-cid-$id]}"
 
-        val client: KafkaProducer<String, String> = KafkaProducer<String, String>(producerConfig)
+        val client = KafkaProducer<ByteArray, ByteArray>(producerConfig)
 
         runBlocking {
             for (fileName in filelist) {
@@ -151,7 +152,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     }
 
     // Plays a record (writes to target Kafka topic)
-    private suspend fun play(client: KafkaProducer<String, String>, record: CassetteRecord, offsetNanos: Long) {
+    private suspend fun play(client: KafkaProducer<ByteArray, ByteArray>, record: CassetteRecord, offsetNanos: Long) {
         val ts = Date(record.timestamp).toInstant()
         val now = Date().toInstant()
         val whenToSend = ts.plusNanos(offsetNanos)
@@ -166,7 +167,12 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         //NB: millisecond resolution!
         delay(millis)
         //TODO map record.partition to target topic partition in round-robin fashion.
-        val producerRecord = ProducerRecord<String, String>(topic, record.partition, record.key, record.value)
+        val producerRecord = ProducerRecord<ByteArray, ByteArray>(
+            topic,
+            record.partition,
+            record.key?.toByteArray(),
+            record.value.toByteArray()
+        )
         for (header in record.headers) {
             producerRecord.headers().add(header.key, header.value.toByteArray())
         }
