@@ -9,7 +9,12 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.float
 import com.nordstrom.kafka.kcr.Kcr
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
+import com.nordstrom.kafka.kcr.metrics.JmxConfigRecord
+import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Timer
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry
+import io.micrometer.core.instrument.util.HierarchicalNameMapper
+import io.micrometer.jmx.JmxMeterRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
@@ -21,7 +26,6 @@ import kotlinx.serialization.json.Json
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.ByteArraySerializer
-import org.apache.kafka.common.serialization.StringSerializer
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.time.Duration
@@ -51,8 +55,17 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     // Global options from parent command.
     private val opts by requireObject<Properties>()
 
+    private val registry = CompositeMeterRegistry()
+    init {
+        registry.add(JmxMeterRegistry(JmxConfigRecord(), Clock.SYSTEM, HierarchicalNameMapper.DEFAULT))
+    }
 
+    //
+    // entry
+    //
     override fun run() {
+        println("kcr.play.cassette: $cassette")
+        println("kcr.play.topic: $topic")
         log.trace(".run")
         val duration = Timer.start()
         val t0 = Date().toInstant()
@@ -121,14 +134,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         }
         log.trace(".run.OK")
         println("runtime ${Duration.between(t0, Date().toInstant())}")
-        duration.stop(Kcr.registry.timer("kcr.player.duration-ms"))
+        duration.stop(registry.timer("kcr.player.duration-ms"))
     }
 
     // Produces CassetteRecords by reading the partition file.
     fun CoroutineScope.recordsProducer(fileName: String): ReceiveChannel<CassetteRecord> = produce {
         val partitionNumber = fileName.substringAfterLast("-")
         val duration = Timer.start()
-        val writes = Kcr.registry.counter("kcr.player.partition.send-total", "partition", partitionNumber)
+        val sends = registry.counter("kcr.player.partition.send.total", "partition", partitionNumber)
+        val sendsTotal = registry.counter("kcr.play.sends.total")
 
         val reader = File(cassette, fileName).bufferedReader()
         reader.useLines { lines ->
@@ -139,12 +153,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                 @UseExperimental(kotlinx.serialization.UnstableDefault::class)
                 val record = Json.parse(CassetteRecord.serializer(), line)
                 //TODO adjust timestamp to control playback rate?
-                writes.increment()
                 send(record)
+                sends.increment()
+                sendsTotal.increment()
             }
         }
         duration.stop(
-            Kcr.registry.timer(
+            registry.timer(
                 "kcr.player.partition.duration-ms",
                 "partition", partitionNumber
             )

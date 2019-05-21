@@ -39,7 +39,7 @@ dependencies {
     compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
 
     compile "io.micrometer:micrometer-registry-statsd:latest.release"
-
+    compile "io.micrometer:micrometer-registry-jmx:latest.release"
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 }
 

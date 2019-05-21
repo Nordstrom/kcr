@@ -12,6 +12,7 @@ module com.nordstrom.kafka.kcr {
     requires kotlinx.serialization.runtime;
 
     requires micrometer.core;
+    requires micrometer.registry.jmx;
     requires micrometer.registry.statsd;
 
     requires slf4j.api;

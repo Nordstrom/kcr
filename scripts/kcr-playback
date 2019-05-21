@@ -2,7 +2,6 @@
 
 TOPIC=$1
 CASSETTE=$2
-echo "Playback $CASSETTE to topic $TOPIC"
 
 #needed to enable monitoring tools (jconsole, visualvm, etc)
 OPTS="-Djava.rmi.server.hostname=127.0.0.1"

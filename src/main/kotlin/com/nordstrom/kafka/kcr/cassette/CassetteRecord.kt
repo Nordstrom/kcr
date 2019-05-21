@@ -8,6 +8,6 @@ class CassetteRecord(
     val timestamp: Long,
     val partition: Int,
     val offset: Long,
-    val key: String?,
+    val key: String? = null,
     val value: String
 )
