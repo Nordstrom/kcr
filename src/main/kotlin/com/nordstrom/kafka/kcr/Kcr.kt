@@ -46,8 +46,6 @@ class Kcr : CliktCommand(
     private val opts by findObject { Properties() }
 
     override fun run() {
-        println("kcr.id: $id")
-
         opts["kcr.id"] = id
         opts["bootstrap.servers"] = bootstrapServers
         opts["security.protocol"] = securityProtocol
@@ -63,7 +61,6 @@ class Kcr : CliktCommand(
                 else -> "" // Not supported
             }
         }
-
     }
 
 

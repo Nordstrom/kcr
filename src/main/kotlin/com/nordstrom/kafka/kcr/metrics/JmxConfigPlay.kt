@@ -13,11 +13,15 @@ class JmxConfigPlay : JmxConfig {
     }
 
     override fun prefix(): String {
-        return "kcr-jmx"
+        return "jmx"
     }
 
     override fun domain(): String {
-        return "kcr.play"
+        return DOMAIN
+    }
+
+    companion object {
+        val DOMAIN = "kcr.player"
     }
 
 }

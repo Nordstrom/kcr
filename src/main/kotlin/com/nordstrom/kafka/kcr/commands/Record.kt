@@ -12,10 +12,10 @@ import com.nordstrom.kafka.kcr.io.FileSinkFactory
 import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
 import com.nordstrom.kafka.kcr.kafka.KafkaSourceFactory
 import com.nordstrom.kafka.kcr.metrics.JmxConfigRecord
+import com.nordstrom.kafka.kcr.metrics.JmxNameMapper
 import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry
-import io.micrometer.core.instrument.util.HierarchicalNameMapper
 import io.micrometer.jmx.JmxMeterRegistry
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -24,6 +24,7 @@ import sun.misc.Signal
 import sun.misc.SignalHandler
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.atomic.AtomicLong
 
 class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a cassette.") {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -47,8 +48,10 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     private val opts by requireObject<Properties>()
 
     val registry = CompositeMeterRegistry()
+    private val start = Date().toInstant()
+
     init {
-        registry.add(JmxMeterRegistry(JmxConfigRecord(), Clock.SYSTEM, HierarchicalNameMapper.DEFAULT))
+        registry.add(JmxMeterRegistry(JmxConfigRecord(), Clock.SYSTEM, JmxNameMapper()))
     }
 
 
@@ -56,10 +59,10 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     // entry
     //
     override fun run() {
+        println("kcr.record.id: ${opts["kcr.id"]}")
         println("kcr.record.topic: $topic")
         log.trace(".run")
-        val duration = Timer.start()
-        val t0 = Date().toInstant()
+        val metricDurationTimer = Timer.start()
 
         // Remove non-kakfa properties
         val cleanOpts = Properties()
@@ -98,16 +101,19 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         log.trace(".run.wait-for-sigint")
         Signal.handle(Signal("INT"), object : SignalHandler {
             override fun handle(sig: Signal) {
-                println("\nkcr.runtime: ${Duration.between(t0, Date().toInstant())}")
-                duration.stop(
+                println("\nkcr.record.runtime: ${Duration.between(start, Date().toInstant())}")
+                metricDurationTimer.stop(
                     registry.timer(
-                        "kcr.recorder.duration-ms"
+                        "duration-ms"
                     )
                 )
                 System.exit(0)
             }
         })
+
+        val metricElapsedMillis = registry.gauge("elapsed-ms", AtomicLong(0))
         while (true) {
+            metricElapsedMillis?.set(Duration.between(start, Date().toInstant()).toMillis())
             Thread.sleep(500L)
         }
 

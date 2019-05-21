@@ -1,5 +1,8 @@
 package com.nordstrom.kafka.kcr.metrics
 
+import io.micrometer.core.instrument.Meter
+import io.micrometer.core.instrument.config.NamingConvention
+import io.micrometer.core.instrument.util.HierarchicalNameMapper
 import io.micrometer.jmx.JmxConfig
 import java.time.Duration
 
@@ -13,11 +16,14 @@ class JmxConfigRecord : JmxConfig {
     }
 
     override fun prefix(): String {
-        return "kcr-jmx"
+        return "jmx"
     }
 
     override fun domain(): String {
-        return "kcr.record"
+        return DOMAIN
     }
 
+    companion object {
+        val DOMAIN = "kcr.recorder"
+    }
 }

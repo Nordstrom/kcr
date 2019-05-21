@@ -59,18 +59,21 @@ Options:
 
 ## Metrics
 
-Metrics are written as [io.micrometer](https://micrometer.io/docs) Timer and Counter `Meter` primitives using the [`statsd`](https://micrometer.io/docs/registry/statsD) registry.
+Metrics are written as [io.micrometer](https://micrometer.io/docs) Timer and Counter `Meter` primitives using the [`jmx`](https://micrometer.io/docs/registry/jmx) registry.
 
 | Metric | Description|
 | :--- | :--- |
-|RECORD||
-|kcr.recorder.duration-ms|Overall duration of recording session|
-|kcr.recorder.partition.duration-ms,partition=n|Duration of recording for partition 'n'|
-|kcr.recorder.partition.write-total,partition=n|Total record writes for partition 'n'|
-|PLAYBACK||
-|kcr.player.duration-ms|Overall duration of playback session|
-|kcr.player.partition.duration-ms,partition=n|Duration of playback for partition 'n'|
-|kcr.player.partition.send-total,partition=n|Total record sends for partition 'n'|
+|kcr.recorder||
+|duration-ms|Overall duration of recording session in milliseconds|
+|elapsed-ms|Elapsed time of recording session in milliseconds|
+|write.total|Total record writes|
+|write.total.partition.nn|Total record writes for partition 'nn'|
+|kcr.player||
+|duration-ms|Overall duration of playback session in milliseconds|
+|duration-ms.partition.nn|Duration of playback for partition 'nn'|
+|elapsed-ms|Elapsed time of playback session in milliseconds|
+|send.total|Total record sends for playback session|
+|send.total.partition.nn|Total record sends for partition 'nn'|
 
 
 ## Running the program
