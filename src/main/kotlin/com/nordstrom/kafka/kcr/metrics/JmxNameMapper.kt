@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.util.HierarchicalNameMapper
 class JmxNameMapper : HierarchicalNameMapper {
     override fun toHierarchicalName(id: Meter.Id, convention: NamingConvention): String {
         var name = id.name
+        //TODO handle multiple tags
         if (id.tags.isNotEmpty()) {
             val t = id.tags.joinToString { "${it.key}.${it.value}" }
             name += ".$t"

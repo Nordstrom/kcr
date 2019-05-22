@@ -12,13 +12,10 @@ import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry
 import io.micrometer.jmx.JmxMeterRegistry
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.produce
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -27,7 +24,6 @@ import org.slf4j.LoggerFactory
 import sun.misc.Signal
 import sun.misc.SignalHandler
 import java.io.File
-import java.security.InvalidParameterException
 import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.*
@@ -74,9 +70,8 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     //
     override fun run() {
         //TODO show()
-        println("kcr.play.id: ${opts["kcr.id"]}")
-        println("kcr.play.cassette: $cassette")
-        println("kcr.play.topic: $topic")
+        println("kcr.play.id      : ${opts["kcr.id"]}")
+        println("kcr.play.topic   : $topic")
         println("kcr.play.playback-rate: $playbackRate")
 
         val metricDurationTimer = Timer.start()
@@ -96,8 +91,8 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         // We need this to determine the correct playback sequence of the records since the topic
         // records were written by partition.
         val cinfo = CassetteInfo(cassette)
+        println(cinfo.summary())
         if (info) {
-            println("kcr.play.info\n${cinfo.summary()}")
             return
         }
 
@@ -120,7 +115,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                     log.trace(".run:file=${fileName}")
                     val records = recordsProducer(fileName)
                     // Play records as separate jobs
-                    launch {
+                    launch(Dispatchers.IO + CoroutineName("kcr-player")) {
                         records.consumeEach { record ->
                             play(client, record, offsetNanos)
                         }
@@ -128,14 +123,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                 }
             }
         }
-        println("kcr.play.runtime: ${Duration.between(start, Date().toInstant())}")
+        println("kcr.play.runtime : ${Duration.between(start, Date().toInstant())}")
         metricDurationTimer.stop(registry.timer("duration-ms"))
 
         if (pause) {
             // Handle ctrl-c
             Signal.handle(Signal("INT"), object : SignalHandler {
                 override fun handle(sig: Signal) {
-                    println("\nkcr.record.runtime: ${Duration.between(start, Date().toInstant())}")
                     System.exit(0)
                 }
             })

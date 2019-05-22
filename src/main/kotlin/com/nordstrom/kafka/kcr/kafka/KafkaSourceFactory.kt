@@ -22,15 +22,12 @@ class KafkaSourceFactory(
             gid = "kcr-$topic-gid-$id"
         }
         config["group.id"] = gid
-
-        log.trace(".init.ok:gid=$gid")
     }
 
     override fun create(partition: Int): Source {
         // Unique cid
         val cid = "kcr-$topic-cid-$id-$partition"
         config["client.id"] = cid
-        log.trace(".create:cid=$cid")
 
         return KafkaSource(config, topic, partition)
     }

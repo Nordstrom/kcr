@@ -33,7 +33,7 @@ class Cassette(
     }
 
     fun create(id: String) {
-        val dateFormat = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")
         val nowish = Date()
         cassetteName = "kcr-$topic-${dateFormat.format(nowish)}"

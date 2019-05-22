@@ -1,8 +1,5 @@
 package com.nordstrom.kafka.kcr.metrics
 
-import io.micrometer.core.instrument.Meter
-import io.micrometer.core.instrument.config.NamingConvention
-import io.micrometer.core.instrument.util.HierarchicalNameMapper
 import io.micrometer.jmx.JmxConfig
 import java.time.Duration
 

@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.validate
+import com.nordstrom.kafka.kcr.Kcr
 import com.nordstrom.kafka.kcr.Kcr.Companion.id
 import com.nordstrom.kafka.kcr.cassette.Cassette
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
@@ -18,8 +19,7 @@ import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry
 import io.micrometer.jmx.JmxMeterRegistry
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import sun.misc.Signal
 import sun.misc.SignalHandler
@@ -53,6 +53,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
     init {
         registry.add(JmxMeterRegistry(JmxConfigRecord(), Clock.SYSTEM, JmxNameMapper()))
+        //TODO Add common tag 'id'
     }
 
 
@@ -60,7 +61,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     // entry
     //
     override fun run() {
-        println("kcr.record.id: ${opts["kcr.id"]}")
+        println("kcr.record.id   : ${opts["kcr.id"]}")
         println("kcr.record.topic: $topic")
         log.trace(".run")
         val metricDurationTimer = Timer.start()
@@ -93,8 +94,10 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             val source = cassette.sources[partitionNumber]
             val sink = cassette.sinks[partitionNumber]
             val recorder = Recorder(source, sink)
-            GlobalScope.launch {
-                recorder.record(partitionNumber, registry)
+            runBlocking {
+                GlobalScope.launch(Dispatchers.IO + CoroutineName("kcr-recorder")) {
+                    recorder.record(partitionNumber, registry)
+                }
             }
         }
 
@@ -102,7 +105,6 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         log.trace(".run.wait-for-sigint")
         Signal.handle(Signal("INT"), object : SignalHandler {
             override fun handle(sig: Signal) {
-                println("\nkcr.record.runtime: ${Duration.between(start, Date().toInstant())}")
                 metricDurationTimer.stop(
                     registry.timer(
                         "duration-ms"
@@ -114,6 +116,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             }
         })
 
+        // Update elapsed time metric whilst waiting for ctrl-c
         val metricElapsedMillis = registry.gauge("elapsed-ms", AtomicLong(0))
         while (true) {
             metricElapsedMillis?.set(Duration.between(start, Date().toInstant()).toMillis())

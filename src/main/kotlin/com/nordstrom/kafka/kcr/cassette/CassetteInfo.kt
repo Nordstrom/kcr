@@ -7,6 +7,7 @@ import java.time.Instant
 import java.util.*
 
 class CassetteInfo(val cassette: String) {
+
     class CassettePartitionInfo(val cassette: String, val file: String) {
         val earliest: Long
         val latest: Long
@@ -36,9 +37,9 @@ class CassetteInfo(val cassette: String) {
     }
 
     val earliest: Instant
-    val latest: Instant
-    val partitions: MutableList<CassettePartitionInfo> = mutableListOf()
-    val totalRecords: Int
+    private val latest: Instant
+    private val partitions: MutableList<CassettePartitionInfo> = mutableListOf()
+    private val totalRecords: Int
 
     init {
         val filelist = File(cassette).list()
@@ -58,7 +59,7 @@ class CassetteInfo(val cassette: String) {
     }
 
     fun summary(): String {
-        val s = """
+        return """
  _________
 |   ___   | title   : $cassette
 |  o___o  | tracks  : ${partitions.size}
@@ -66,6 +67,5 @@ class CassetteInfo(val cassette: String) {
             recorded: $earliest - $latest
             length  : ${Duration.between(earliest, latest)}
         """.trimIndent()
-        return s
     }
 }
