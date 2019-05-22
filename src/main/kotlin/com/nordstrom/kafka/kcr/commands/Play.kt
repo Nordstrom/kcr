@@ -38,12 +38,11 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         .required()
         .validate {
             require(!it.isEmpty()) { "--cassette value cannot be blank" }
-            require(!File(it).list().isNullOrEmpty()) {"--cassette $it is empty or invalid"}
+            require(!File(it).list().isNullOrEmpty()) { "--cassette $it is empty or invalid" }
         }
     //NB: This initial version can only playback at the capture rate.
-    private val playbackRate: Float by option(help = "Playback rate multiplier (1.0 = play at capture rate, 2.0 = playback at twice capture rate)").float().default(
-        1.0f
-    )
+    private val playbackRate: Float by option(help = "Playback rate multiplier (1.0 = play at capture rate, 2.0 = playback at twice capture rate)").float()
+        .default(1.0f)
 
     private val topic by option(help = "Kafka topic to write (REQUIRED)")
         .required()
@@ -72,7 +71,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         println("kcr.play.id: ${opts["kcr.id"]}")
         println("kcr.play.cassette: $cassette")
         println("kcr.play.topic: $topic")
-        println("kcr.play.info: $info")
+        println("kcr.play.playback-rate: $playbackRate")
 
         val metricDurationTimer = Timer.start()
         val id = opts["kcr.id"]
@@ -89,34 +88,41 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
         val filelist = File(cassette).list()
 
-        // Read first record from each file in cassette to determine timestamp of earliest record.
+        // Read records from each file in cassette to determine timestamp of earliest and latest record.
         // We need this to determine the correct playback sequence of the records since the topic
         // records were written by partition.
-        var earliest = Long.MAX_VALUE
+        var first = Long.MAX_VALUE
+        var last = Long.MIN_VALUE
         for (file in filelist) {
             if ("manifest" in file) {
                 continue
             } else {
-                val lines = File(cassette, file).readLines()
-                if (lines.isNotEmpty()) {
-                    val line = File(cassette, file).readLines()[0]
-                    @UseExperimental(kotlinx.serialization.UnstableDefault::class)
-                    val record = Json.parse(CassetteRecord.serializer(), line)
-                    if (record.timestamp < earliest) {
-                        earliest = record.timestamp
+                val reader = File(cassette, file).bufferedReader()
+                reader.useLines { lines ->
+                    lines.forEach { line ->
+                        @UseExperimental(kotlinx.serialization.UnstableDefault::class)
+                        val record = Json.parse(CassetteRecord.serializer(), line)
+                        if (record.timestamp < first) {
+                            first = record.timestamp
+                        }
+                        if (record.timestamp > last) {
+                            last = record.timestamp
+                        }
                     }
                 }
             }
         }
-        log.trace(".run:earliest=$earliest, ${Date(earliest)}, ${Date(earliest).toInstant()}")
+        val earliest = Date(first).toInstant()
+        val latest = Date(last).toInstant()
+        log.trace(".run:earliest=$first, $earliest")
         if (info) {
-            log.info(".run:earliest=$earliest, ${Date(earliest)}, ${Date(earliest).toInstant()}")
+            println("kcr.play.info: first=$earliest, last=$latest, duration=${Duration.between(earliest, latest)}")
             return
         }
 
         // This is the playback offset (from earliest record to now) that is added to each record's timestamp
         // to determine correct playback time.
-        val offsetNanos = ChronoUnit.NANOS.between(Date(earliest).toInstant(), start)
+        val offsetNanos = ChronoUnit.NANOS.between(Date(first).toInstant(), start)
 
         val producerConfig = Properties()
         producerConfig.putAll(opts)
