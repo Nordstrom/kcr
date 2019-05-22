@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.validate
 import com.nordstrom.kafka.kcr.Kcr.Companion.id
 import com.nordstrom.kafka.kcr.cassette.Cassette
+import com.nordstrom.kafka.kcr.cassette.CassetteInfo
 import com.nordstrom.kafka.kcr.io.FileSinkFactory
 import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
 import com.nordstrom.kafka.kcr.kafka.KafkaSourceFactory
@@ -107,6 +108,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
                         "duration-ms"
                     )
                 )
+                val info = CassetteInfo(cassette.cassetteDir)
+                println(info.summary())
                 System.exit(0)
             }
         })

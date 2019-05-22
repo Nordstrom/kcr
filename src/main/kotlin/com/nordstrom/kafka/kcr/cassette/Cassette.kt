@@ -17,8 +17,6 @@ class Cassette(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-//    private val id = AlphaNumKeyGenerator().key(8)
-
     lateinit var cassetteDir: String
     lateinit var cassetteName: String
     lateinit var manifest: CassetteManifest
@@ -32,11 +30,9 @@ class Cassette(
             sinkFactory == null -> throw IllegalArgumentException("Must have a concrete SinkFactory")
 //            sourceFactory == null -> throw IllegalArgumentException("Must have a concrete SourceFactory")
         }
-        log.trace(".init.ok")
     }
 
     fun create(id: String) {
-        log.trace(".create")
         val dateFormat = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getTimeZone("UTC")
         val nowish = Date()
@@ -67,8 +63,6 @@ class Cassette(
             val source = sourceFactory?.create(partition)
             sources.add(source)
         }
-
-        log.trace("create.ok")
     }
 
 }
