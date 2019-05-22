@@ -9,6 +9,7 @@ while :
 do
   now=`date`
   echo "$key|{\"hola-brook\":\"$now\"}" | kafkacat -b localhost:9092 -K '|' -H "now=$now" -P -t ${TOPIC}
+  #echo "{\"hola-brook\":\"$now\"}" | kafkacat -b localhost:9092 -H "now=$now" -P -t ${TOPIC}
   sleep 1
   key=$((key+1))
 done
