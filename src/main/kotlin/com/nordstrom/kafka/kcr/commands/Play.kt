@@ -95,6 +95,10 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         if (info) {
             return
         }
+        if (cinfo.totalRecords <= 0) {
+            println("No records to play")
+            return
+        }
 
         // This is the playback offset (from earliest record to now) that is added to each record's timestamp
         // to determine correct playback time.

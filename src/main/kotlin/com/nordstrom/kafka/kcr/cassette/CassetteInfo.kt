@@ -39,7 +39,7 @@ class CassetteInfo(val cassette: String) {
     val earliest: Instant
     private val latest: Instant
     private val partitions: MutableList<CassettePartitionInfo> = mutableListOf()
-    private val totalRecords: Int
+    val totalRecords: Int
 
     init {
         val filelist = File(cassette).list()

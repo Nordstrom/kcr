@@ -61,9 +61,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     // entry
     //
     override fun run() {
-        println("kcr.record.id   : ${opts["kcr.id"]}")
-        println("kcr.record.topic: $topic")
-        log.trace(".run")
+        println("kcr.record.id              : ${opts["kcr.id"]}")
+        println("kcr.record.topic           : $topic")
         val metricDurationTimer = Timer.start()
 
         // Remove non-kakfa properties
@@ -74,6 +73,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         // Describe topic to get number of partitions to record.
         val admin = KafkaAdminClient(cleanOpts)
         val numberPartitions = admin.numberPartitions(topic)
+        println("kcr.record.topic.partitions: $numberPartitions")
 
         // Create a cassette and start recording topic messages
         val sinkFactory = FileSinkFactory()
