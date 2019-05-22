@@ -1,5 +1,5 @@
 # kcr
-Kafka Cassette Recorder P.O.C.
+Kafka Cassette Recorder
 
 ## Usage
 
@@ -131,3 +131,4 @@ The `./example` directory has a `docker-compose.yml` that will start a local kaf
 # Roadmap
 
 * Use `avro` for cassette format
+* Record / playback from AWS S3
