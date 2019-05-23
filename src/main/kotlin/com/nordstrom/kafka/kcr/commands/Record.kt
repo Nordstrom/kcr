@@ -31,8 +31,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     private val log = LoggerFactory.getLogger(javaClass)
 
     // Record options
-    private val dataDirectory by option(help = "Kafka Cassette Recorder data directory for recording (default=./data)")
-        .default("./data")
+    private val dataDirectory by option(help = "Kafka Cassette Recorder data directory for recording (default=$DEFAULT_CASSETTE_DIR)")
+        .default(DEFAULT_CASSETTE_DIR)
 
     private val groupId by option(help = "Kafka consumer group id (default=kcr-<topic>-gid")
         .validate {
@@ -123,6 +123,10 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             Thread.sleep(500L)
         }
 
+    }
+
+    companion object {
+        val DEFAULT_CASSETTE_DIR = "kcr"
     }
 
 }

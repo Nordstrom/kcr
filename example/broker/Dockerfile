@@ -8,7 +8,7 @@ RUN groupadd -g 1000 broker \
 
 ENV PROMETHEUS_JMX_EXPORTER_PORT=9011
 ENV PROMETHEUS_JMX_EXPORTER_CONF=/etc/jmx_exporter/kafka_broker.yaml
-ENV PROMETHEUS_JMX_EXPORTER_VERSION=0.3.1
+ENV PROMETHEUS_JMX_EXPORTER_VERSION=0.11.0
 
 RUN mkdir -p /etc/jmx_exporter /opt/lib \
  && curl -L "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/$PROMETHEUS_JMX_EXPORTER_VERSION/jmx_prometheus_javaagent-$PROMETHEUS_JMX_EXPORTER_VERSION.jar" \
