@@ -117,13 +117,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
         val filelist = File(cassette).list()
         while ( !checkIfDone(iRuns) ) {
-        runBlocking {
-            for (fileName in filelist) {
-                // Skip manifest file
-                if (("manifest" in fileName).not()) {
-                    log.trace(".run:file=${fileName}")
-                    val records = recordsProducer(fileName)
-                    // Play records as separate jobs
+            runBlocking {
+                for (fileName in filelist) {
+                    // Skip manifest file
+                    if (("manifest" in fileName).not()) {
+                        log.trace(".run:file=${fileName}")
+                        val records = recordsProducer(fileName)
+                        // Play records as separate jobs
                         launch(Dispatchers.IO + CoroutineName("kcr-player")) {
                             records.consumeEach { record ->
                                 play(client, record, offsetNanos)
@@ -216,14 +216,10 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     }
 
     private fun checkIfDone(runCount: Int): Boolean {
-        println("Number of runs: $runCount")
-        println("Total desired runs: $numberOfRuns")
         if ( numberOfRuns == 0 || runCount < numberOfRuns ) {
-            println("Returning false")
             return false
         }
 
-        println("Returning true")
         return true
     }
 
