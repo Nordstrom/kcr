@@ -113,8 +113,10 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         producerConfig["value.serializer"] = ByteArraySerializer::class.java.canonicalName
         producerConfig["client.id"] = "kcr-$topic-cid-$id]}"
         val client = KafkaProducer<ByteArray, ByteArray>(producerConfig)
+        var iRuns = 0
 
         val filelist = File(cassette).list()
+        while ( !checkIfDone(iRuns) ) {
         runBlocking {
             for (fileName in filelist) {
                 // Skip manifest file
@@ -122,18 +124,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                     log.trace(".run:file=${fileName}")
                     val records = recordsProducer(fileName)
                     // Play records as separate jobs
-                    var iRuns = 0
-
-                    while ( checkIfDone(iRuns) ) {
                         launch(Dispatchers.IO + CoroutineName("kcr-player")) {
                             records.consumeEach { record ->
                                 play(client, record, offsetNanos)
                             }
                         }
-                        iRuns++
                     }
                 }
             }
+            iRuns++
         }
         println("kcr.play.runtime : ${Duration.between(start, Date().toInstant())}")
         metricDurationTimer.stop(registry.timer("duration-ms"))
@@ -217,10 +216,14 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     }
 
     private fun checkIfDone(runCount: Int): Boolean {
+        println("Number of runs: $runCount")
+        println("Total desired runs: $numberOfRuns")
         if ( numberOfRuns == 0 || runCount < numberOfRuns ) {
+            println("Returning false")
             return false
         }
 
+        println("Returning true")
         return true
     }
 
