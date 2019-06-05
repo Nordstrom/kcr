@@ -3,6 +3,7 @@ package com.nordstrom.kafka.kcr.commands
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.requireObject
 import com.github.ajalt.clikt.parameters.options.*
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.float
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
@@ -52,8 +53,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val info by option(help = "List information about a Cassette, then exit").flag()
     private val pause by option(help = "Pause at end of playback (ctrl-c to exit)").flag()
 
-    private val numberOfRuns: Int by option(help = "Number of times to run the playback").int()
-        .default(1)
+    private val numberOfRuns: Int by option(help = "Number of times to run the playback").int().default(1)
 
     // Global options from parent command.
     private val opts by requireObject<Properties>()
