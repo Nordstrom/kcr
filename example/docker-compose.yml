@@ -10,8 +10,8 @@ services:
     logging: { driver: none }
 
   broker:
-    build: ./broker/
-    #image: confluentinc/cp-kafka:5.1.2
+    #build: ./broker/
+    image: confluentinc/cp-enterprise-kafka:5.1.2
     ports:
     - 9092:9092
     - 9011:9011
@@ -26,29 +26,21 @@ services:
       KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 10
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_DELETE_TOPIC_ENABLE: "true"
-      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "true"
+      KAFKA_METRIC_REPORTERS: "io.confluent.metrics.reporter.ConfluentMetricsReporter"
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: "broker:9092"
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: "1"
+      #KAFKA_CONFLUENT_SUPPORT_METRICS_TOPIC: "__confluent.support.metrics"
+      #KAFKA_CONFLUENT_SUPPORT_METRICS_ENDPOINT_INSECURE_ENABLE: "false"
+      #KAFKA_CONFLUENT_SUPPORT_METRICS_ENDPOINT_SECURE_ENABLE: "false"
+      #KAFKA_CONFLUENT_SUPPORT_METRICS_REPORT_INTERVAL_HOURS: "1"
 
       KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
-      KAFKA_PRINCIPAL_BUILDER_CLASS: "com.nordstrom.kafka.security.auth.RegexPrincipalBuilder"
+      KAFKA_LOG4J_LOGGERS: kafka.request.logger=TRACE
+      #KAFKA_PRINCIPAL_BUILDER_CLASS: "com.nordstrom.kafka.security.auth.RegexPrincipalBuilder"
       # Regex to derive principal following 'slash-path' naming convention of <principal>/<uid>
       KAFKA_PRINCIPAL_BUILDER_REGEX: "(.+)/.+"
       # Uncomment to debug authorization.
       # KAFKA_LOG4J_LOGGERS: "kafka.authorizer.logger=DEBUG,com.nordstrom.kafka.security.auth=DEBUG"
     depends_on: [zookeeper]
-
-  # schema-registry:
-  #   build: ./schema-registry/
-  #   #image: confluentinc/cp-schema-registry:5.1.2
-  #   hostname: schema-registry
-  #   ports:
-  #   - 8080:8080
-  #   - 9012:9011
-  #   environment:
-  #     SCHEMA_REGISTRY_HOST_NAME: schema-registry
-  #     SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8080"
-  #
-  #     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://broker:19092"
-  #     SCHEMA_REGISTRY_KAFKASTORE_TOPIC: __schemas
-  #     SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
-  #     SCHEMA_REGISTRY_KAFKASTORE_TIMEOUT_MS: 15000
-  #   depends_on: [broker]

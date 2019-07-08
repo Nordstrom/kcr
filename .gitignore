@@ -1,4 +1,6 @@
 data
+bin
+kcr
 
 HELP.md
 .gradle
