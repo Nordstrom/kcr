@@ -3,6 +3,7 @@ package com.nordstrom.kafka.kcr.commands
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.requireObject
 import com.github.ajalt.clikt.parameters.options.*
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.float
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
@@ -54,6 +55,8 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     private val info by option(help = "List information about a Cassette, then exit").flag()
     private val pause by option(help = "Pause at end of playback (ctrl-c to exit)").flag()
+
+    private val numberOfRuns: Int by option(help = "Number of times to run the playback").int().default(1)
 
     // Global options from parent command.
     private val opts by requireObject<Properties>()
@@ -127,22 +130,26 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         }
         producerOpts.putAll(cleanOpts)
         val client = KafkaProducer<ByteArray, ByteArray>(producerOpts)
+        var iRuns = 0
 
         val filelist = File(cassette).list()
-        runBlocking {
-            for (fileName in filelist) {
-                // Skip manifest file
-                if (("manifest" in fileName).not()) {
-                    log.trace(".run:file=${fileName}")
-                    val records = recordsProducer(fileName)
-                    // Play records as separate jobs
-                    launch(Dispatchers.IO + CoroutineName("kcr-player")) {
-                        records.consumeEach { record ->
-                            play(client, record, offsetNanos)
+        while ( !checkIfDone(iRuns) ) {
+            runBlocking {
+                for (fileName in filelist) {
+                    // Skip manifest file
+                    if (("manifest" in fileName).not()) {
+                        log.trace(".run:file=${fileName}")
+                        val records = recordsProducer(fileName)
+                        // Play records as separate jobs
+                        launch(Dispatchers.IO + CoroutineName("kcr-player")) {
+                            records.consumeEach { record ->
+                                play(client, record, offsetNanos)
+                            }
                         }
                     }
                 }
             }
+            iRuns++
         }
         println("kcr.play.runtime : ${Duration.between(start, Date().toInstant())}")
         metricDurationTimer.stop(registry.timer("duration-ms"))
@@ -228,6 +235,14 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private fun updateElapsed() {
         metricElapsedMillis?.set(Duration.between(start, Date().toInstant()).toMillis())
 
+    }
+
+    private fun checkIfDone(runCount: Int): Boolean {
+        if ( numberOfRuns == 0 || runCount < numberOfRuns ) {
+            return false
+        }
+
+        return true
     }
 
     //TODO
