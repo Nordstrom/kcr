@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.float
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
+import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
 import com.nordstrom.kafka.kcr.metrics.JmxConfigPlay
 import com.nordstrom.kafka.kcr.metrics.JmxNameMapper
 import io.micrometer.core.instrument.Clock
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory
 import sun.misc.Signal
 import sun.misc.SignalHandler
 import java.io.File
+import java.io.FileInputStream
 import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.*
@@ -48,6 +50,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         .validate {
             require(!it.isEmpty()) { "'topic' value cannot be empty or null" }
         }
+    private val producerConfig by option(help = "Optional Kafka Producer configuration file. OVERWRITES any command-line values.")
 
     private val info by option(help = "List information about a Cassette, then exit").flag()
     private val pause by option(help = "Pause at end of playback (ctrl-c to exit)").flag()
@@ -58,6 +61,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val registry = CompositeMeterRegistry()
     private val start = Date().toInstant()
 
+    private var numberPartitions = 0
     private val metricElapsedMillis: AtomicLong?
 
     init {
@@ -82,10 +86,9 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         cleanOpts.putAll(opts)
         cleanOpts.remove("kcr.id")
 
-        // Describe topic to get number of partitions to record.
-//        //TODO map recorded partitions to target
-//        val admin = KafkaAdminClient(cleanOpts)
-//        val numberPartitions = admin.numberPartitions(topic)
+        // Describe topic to get number of partitions of playback topic.
+        val admin = KafkaAdminClient(cleanOpts)
+        numberPartitions = admin.numberPartitions(topic)
 
         // Read records from each file in cassette to determine timestamp of earliest and latest record.
         // We need this to determine the correct playback sequence of the records since the topic
@@ -99,17 +102,31 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             println("No records to play")
             return
         }
+        // Handle ctrl-c
+        Signal.handle(Signal("INT"), object : SignalHandler {
+            override fun handle(sig: Signal) {
+                println(".exit.")
+                //TODO print metrics summary
+                System.exit(0)
+            }
+        })
 
         // This is the playback offset (from earliest record to now) that is added to each record's timestamp
         // to determine correct playback time.
         val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, start)
 
-        val producerConfig = Properties()
-        producerConfig.putAll(cleanOpts)
-        producerConfig["key.serializer"] = ByteArraySerializer::class.java.canonicalName
-        producerConfig["value.serializer"] = ByteArraySerializer::class.java.canonicalName
-        producerConfig["client.id"] = "kcr-$topic-cid-$id]}"
-        val client = KafkaProducer<ByteArray, ByteArray>(producerConfig)
+        // Add/overwrite producer config from optional properties file.
+        val producerOpts = Properties()
+        producerOpts["key.serializer"] = ByteArraySerializer::class.java.canonicalName
+        producerOpts["value.serializer"] = ByteArraySerializer::class.java.canonicalName
+        producerOpts["client.id"] = "kcr-$topic-cid-$id]}"
+        if (producerConfig.isNullOrEmpty().not()) {
+            val insProducerConfig = FileInputStream(producerConfig)
+            producerOpts.load(insProducerConfig)
+            cleanOpts.putAll(producerOpts)
+        }
+        producerOpts.putAll(cleanOpts)
+        val client = KafkaProducer<ByteArray, ByteArray>(producerOpts)
 
         val filelist = File(cassette).list()
         runBlocking {
@@ -190,17 +207,22 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         //NB: millisecond resolution!
         delay(millis)
         //TODO map record.partition to target topic partition in round-robin fashion.
+        val partitionToUse = mapPartition(record.partition, numberPartitions)
         val producerRecord = ProducerRecord<ByteArray, ByteArray>(
             topic,
-            record.partition,
+            partitionToUse,
             record.key?.toByteArray(),
             record.value.toByteArray()
         )
         for (header in record.headers) {
             producerRecord.headers().add(header.key, header.value.toByteArray())
         }
-        val future = client.send(producerRecord)
-        future.get()
+        try {
+            val future = client.send(producerRecord)
+            future.get()
+        } catch (e: Exception) {
+            println( "ERROR during send: partition=${record.partition}, key=${record.key}, exception=${e}")
+        }
     }
 
     private fun updateElapsed() {
@@ -209,8 +231,8 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     }
 
     //TODO
-//    private fun mapPartition(partition: Int, numberPartitions: Int): Int {
-//        return partition % numberPartitions
-//    }
+    private fun mapPartition(partition: Int, numberPartitions: Int): Int {
+        return partition % numberPartitions
+    }
 
 }

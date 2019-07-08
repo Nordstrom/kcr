@@ -23,6 +23,7 @@ import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import sun.misc.Signal
 import sun.misc.SignalHandler
+import java.io.FileInputStream
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
@@ -44,6 +45,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         .validate {
             require(it.isNotEmpty()) { "'topic' value cannot be empty or null" }
         }
+    private val consumerConfig by option(help = "Optional Kafka Consumer configuration file. OVERWRITES any command-line values.")
 
     // Global options from parent command.
     private val opts by requireObject<Properties>()
@@ -69,6 +71,14 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         val cleanOpts = Properties()
         cleanOpts.putAll(opts)
         cleanOpts.remove("kcr.id")
+
+        // Add/overwrite consumer config from optional properties file.
+        val consumerOpts = Properties()
+        if (consumerConfig.isNullOrEmpty().not()) {
+            val insConsumerConfig = FileInputStream(consumerConfig)
+            consumerOpts.load(insConsumerConfig)
+            cleanOpts.putAll(consumerOpts)
+        }
 
         // Describe topic to get number of partitions to record.
         val admin = KafkaAdminClient(cleanOpts)

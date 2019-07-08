@@ -26,7 +26,7 @@ import java.util.*
 class KcrVersion {
     //TODO derive from gradle build.
     companion object {
-        const val VERSION = "0.1"
+        const val VERSION = "0.2"
     }
 }
 
