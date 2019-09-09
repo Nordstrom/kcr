@@ -40,6 +40,7 @@ class CassetteInfo(val cassette: String) {
     private val latest: Instant
     private val partitions: MutableList<CassettePartitionInfo> = mutableListOf()
     val totalRecords: Int
+    val clength: Duration
 
     init {
         val filelist = File(cassette).list()
@@ -55,6 +56,7 @@ class CassetteInfo(val cassette: String) {
         val t1 = partitions.stream().map(CassettePartitionInfo::latest).max(Long::compareTo)
         earliest = Date(t0.get()).toInstant()
         latest = Date(t1.get()).toInstant()
+        clength = Duration.between(earliest, latest)
         totalRecords = partitions.sumBy { it.count }
     }
 

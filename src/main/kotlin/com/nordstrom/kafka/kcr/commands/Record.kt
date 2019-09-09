@@ -35,7 +35,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     private val dataDirectory by option(help = "Kafka Cassette Recorder data directory for recording (default=$DEFAULT_CASSETTE_DIR)")
         .default(DEFAULT_CASSETTE_DIR)
 
-    private val groupId by option(help = "Kafka consumer group id (default=kcr-<topic>-gid")
+    private val groupId by option(help = "Kafka consumer group id (default=kcr-<topic>-gid)")
         .validate {
             require(it.isNotEmpty()) { "'group-id' value cannot be empty or null" }
         }
@@ -44,6 +44,10 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         .required()
         .validate {
             require(it.isNotEmpty()) { "'topic' value cannot be empty or null" }
+        }
+    private val duration by option(help = "Kafka duration for recording")
+        .validate {
+            require(it.isNotEmpty()) { "'duration' value cannot be empty or null" }
         }
     private val consumerConfig by option(help = "Optional Kafka Consumer configuration file. OVERWRITES any command-line values.")
 
@@ -97,19 +101,38 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
                 dataDirectory = dataDirectory
             )
         cassette.create("${opts["kcr.id"]}")
-
+       
         // Launch a Recorder co-routine for each partition. Each has a source and sink.  A Recorder reads records
         // from the source and writes to the sink.
-        for (partitionNumber in 0 until numberPartitions) {
-            val source = cassette.sources[partitionNumber]
-            val sink = cassette.sinks[partitionNumber]
-            val recorder = Recorder(source, sink)
-            runBlocking {
-                GlobalScope.launch(Dispatchers.IO + CoroutineName("kcr-recorder")) {
-                    recorder.record(partitionNumber, registry)
+        runBlocking<Unit>{
+            for (partitionNumber in 0 until numberPartitions) {
+                val source = cassette.sources[partitionNumber]
+                val sink = cassette.sinks[partitionNumber]
+                val recorder = Recorder(source, sink)
+                runBlocking {
+                    GlobalScope.launch(Dispatchers.IO + CoroutineName("kcr-recorder")) {
+                        recorder.record(partitionNumber, registry)
+                    }
                 }
             }
+
+            if(duration.isNullOrEmpty().not()){
+                try{
+                    var parts = duration!!.split("h", "m", "s")
+                    var num_duration: Long = parts[0].toLong() * 3600000 + parts[1].toLong() * 60000 + (parts[2].toDouble() * 1000).toLong()
+                    delay(num_duration)
+                    coroutineContext[Job]?.cancel()
+                    throw Exception("coroutine cancellation")
+                } catch(e: Exception){
+                    metricDurationTimer.stop(registry.timer("duration-ms"))
+                    val info = CassetteInfo(cassette.cassetteDir)
+                    println(info.summary())
+                    System.exit(0)
+                }
+            }
+
         }
+
 
         // Handle ctrl-c
         log.trace(".run.wait-for-sigint")
