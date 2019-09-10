@@ -31,6 +31,7 @@ import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.system.exitProcess
 
 class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka topic.") {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -57,16 +58,19 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val pause by option(help = "Pause at end of playback (ctrl-c to exit)").flag()
 
     private val numberOfRuns by option(help = "Number of times to run the playback")
+    
 
-    private var intNumberOfRuns: Int = 0
-
-    private val duration by option(help = "Kafka duration for playback")
+    private val duration by option(help = "Kafka duration for playback, format must be like **h**m**s")
         .validate {
             require(it.isNotEmpty()) { "'duration' value cannot be empty or null" }
+            require(Regex("""(\d.*)h(\d.*)m(\d.*)s""").matches(input = it)) {
+                "Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!"
+            }
         }
-
     // Global options from parent command.
     private val opts by requireObject<Properties>()
+    private var hasNumOfRuns = false
+    private var hasDuration = false
 
     private val registry = CompositeMeterRegistry()
     private val start = Date().toInstant()
@@ -83,23 +87,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     // entry
     //
     override fun run() {
-        if(numberOfRuns.isNullOrEmpty().not()){
-            intNumberOfRuns = numberOfRuns!!.toInt()
-            if(duration.isNullOrEmpty().not()){
-                println("Error: option --number-of-runs cannot be used with --duration")
-                System.exit(0)
-            }
-        } else{
-            intNumberOfRuns = 1
-        }
 
-        if(duration.isNullOrEmpty().not()){
-            val regex = Regex("""(\d.*)h(\d.*)m(\d.*)s""")
-            val matched = regex.matches(input = duration!!.toString())
-            if(!matched){
-                println("Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!")
-                System.exit(0)
-            }
+        hasNumOfRuns = numberOfRuns.isNullOrEmpty().not()
+        hasDuration = duration.isNullOrEmpty().not()
+
+        if( hasNumOfRuns && hasDuration ){
+            println("Error: option --number-of-runs cannot be used with --duration")
+            System.exit(0)
         }
 
         //TODO show()
@@ -155,20 +149,18 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         var iRuns = 0
 
         val filelist = File(cassette).list()
-        var cassette_length = cinfo.clength.toMillis()
+        var cassetteLength = cinfo.cassetteLength.toMillis()
+        var numDuration: Long = 0
 
-        var num_duration: Long = 0
-
-        if(duration.isNullOrEmpty().not()){
+        if(hasDuration){
             var parts = duration!!.split("h", "m", "s")
-            num_duration = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
+            numDuration = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
         }
 
-        var left_duration = num_duration
-        val start_kcr = Date().toInstant()
-
+        var timeLeftMillis = numDuration
+        val startKcr = Date().toInstant()
         runBlocking{
-            while ( !checkIfDone(iRuns) && checkIfRepeat(left_duration)) {
+            while ( shouldContinue(iRuns, timeLeftMillis) ) {
                 runBlocking {
                     // This is the playback offset (from earliest record to now) that is added to each record's timestamp
                     // to determine correct playback time.
@@ -187,25 +179,25 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                         }
                     }
 
-                    if(duration.isNullOrEmpty().not() && (left_duration < cassette_length)){
+                    if(hasDuration && (timeLeftMillis < cassetteLength)){
                         try{
-                            delay(left_duration)
+                            delay(timeLeftMillis)
                             coroutineContext[Job]?.cancel()
                             throw Exception("coroutine cancellation")
                         } catch(e: Exception){
-                            println("kcr.play.runtime : ${Duration.between(start_kcr, Date().toInstant())}")
+                            println("kcr.play.runtime : ${Duration.between(startKcr, Date().toInstant())}")
                             metricDurationTimer.stop(registry.timer("duration-ms"))
                             System.exit(0)
                         }
                     }
                 }
                 iRuns++
-                left_duration -= cassette_length
+                timeLeftMillis -= cassetteLength
             }
 
         }
 
-        println("kcr.play.runtime : ${Duration.between(start_kcr, Date().toInstant())}")
+        println("kcr.play.runtime : ${Duration.between(startKcr, Date().toInstant())}")
         metricDurationTimer.stop(registry.timer("duration-ms"))
 
         if (pause) {
@@ -291,16 +283,12 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     }
 
-    private fun checkIfDone(runCount: Int): Boolean {
-        if ( intNumberOfRuns == 0 || runCount < intNumberOfRuns || duration.isNullOrEmpty().not() ) {
-            return false
-        }
-
-        return true
-    }
-
-    private fun checkIfRepeat(num_duration: Long): Boolean {
-        if( duration.isNullOrEmpty() || num_duration > 0){
+    private fun shouldContinue(runCount: Int, timeLeftMillis: Long) : Boolean {
+        if( hasDuration && timeLeftMillis > 0) {
+            return true
+        } else if( hasNumOfRuns && runCount < numberOfRuns!!.toInt() ) {
+            return true
+        } else if ( !hasNumOfRuns && !hasDuration && runCount == 0){
             return true
         }
         return false

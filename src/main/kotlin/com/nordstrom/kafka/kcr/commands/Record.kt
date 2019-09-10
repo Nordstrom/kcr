@@ -45,15 +45,19 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         .validate {
             require(it.isNotEmpty()) { "'topic' value cannot be empty or null" }
         }
-    private val duration by option(help = "Kafka duration for recording")
+    private val duration by option(help = "Kafka duration for recording, format must be like **h**m**s")
         .validate {
             require(it.isNotEmpty()) { "'duration' value cannot be empty or null" }
+            require(Regex("""(\d.*)h(\d.*)m(\d.*)s""").matches(input = it)) {
+                "Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!"
+            }
         }
+    private var hasDuration = false
     private val consumerConfig by option(help = "Optional Kafka Consumer configuration file. OVERWRITES any command-line values.")
 
     // Global options from parent command.
     private val opts by requireObject<Properties>()
-
+    
     val registry = CompositeMeterRegistry()
     private val start = Date().toInstant()
 
@@ -67,14 +71,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     // entry
     //
     override fun run() {
-        if(duration.isNullOrEmpty().not()){
-            val regex = Regex("""(\d.*)h(\d.*)m(\d.*)s""")
-            val matched = regex.matches(input = duration!!.toString())
-            if(!matched){
-                println("Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!")
-                System.exit(0)
-            }
-        }
+        hasDuration = duration.isNullOrEmpty().not()
         println("kcr.record.id              : ${opts["kcr.id"]}")
         println("kcr.record.topic           : $topic")
         val metricDurationTimer = Timer.start()
@@ -124,11 +121,11 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
                 }
             }
 
-            if(duration.isNullOrEmpty().not()){
+            if(hasDuration){
                 try{
                     var parts = duration!!.split("h", "m", "s")
-                    var num_duration: Long = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
-                    delay(num_duration)
+                    var numDuration: Long = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
+                    delay(numDuration)
                     coroutineContext[Job]?.cancel()
                     throw Exception("coroutine cancellation")
                 } catch(e: Exception){
