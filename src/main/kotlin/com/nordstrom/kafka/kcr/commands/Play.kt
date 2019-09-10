@@ -83,7 +83,6 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     // entry
     //
     override fun run() {
-
         if(numberOfRuns.isNullOrEmpty().not()){
             intNumberOfRuns = numberOfRuns!!.toInt()
             if(duration.isNullOrEmpty().not()){
@@ -92,6 +91,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             }
         } else{
             intNumberOfRuns = 1
+        }
+
+        if(duration.isNullOrEmpty().not()){
+            val regex = Regex("""(\d.*)h(\d.*)m(\d.*)s""")
+            val matched = regex.matches(input = duration!!.toString())
+            if(!matched){
+                println("Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!")
+                System.exit(0)
+            }
         }
 
         //TODO show()
@@ -153,7 +161,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
         if(duration.isNullOrEmpty().not()){
             var parts = duration!!.split("h", "m", "s")
-            num_duration = parts[0].toLong() * 3600000 + parts[1].toLong() * 60000 + (parts[2].toDouble() * 1000).toLong()
+            num_duration = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
         }
 
         var left_duration = num_duration

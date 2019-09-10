@@ -67,6 +67,14 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     // entry
     //
     override fun run() {
+        if(duration.isNullOrEmpty().not()){
+            val regex = Regex("""(\d.*)h(\d.*)m(\d.*)s""")
+            val matched = regex.matches(input = duration!!.toString())
+            if(!matched){
+                println("Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!")
+                System.exit(0)
+            }
+        }
         println("kcr.record.id              : ${opts["kcr.id"]}")
         println("kcr.record.topic           : $topic")
         val metricDurationTimer = Timer.start()
@@ -119,7 +127,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             if(duration.isNullOrEmpty().not()){
                 try{
                     var parts = duration!!.split("h", "m", "s")
-                    var num_duration: Long = parts[0].toLong() * 3600000 + parts[1].toLong() * 60000 + (parts[2].toDouble() * 1000).toLong()
+                    var num_duration: Long = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
                     delay(num_duration)
                     coroutineContext[Job]?.cancel()
                     throw Exception("coroutine cancellation")
