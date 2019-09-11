@@ -31,6 +31,7 @@ import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.system.exitProcess
 
 class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka topic.") {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,10 +57,20 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val info by option(help = "List information about a Cassette, then exit").flag()
     private val pause by option(help = "Pause at end of playback (ctrl-c to exit)").flag()
 
-    private val numberOfRuns: Int by option(help = "Number of times to run the playback").int().default(1)
+    private val numberOfRuns by option(help = "Number of times to run the playback")
+    
 
+    private val duration by option(help = "Kafka duration for playback, format must be like **h**m**s")
+        .validate {
+            require(it.isNotEmpty()) { "'duration' value cannot be empty or null" }
+            require(Regex("""(\d.*)h(\d.*)m(\d.*)s""").matches(input = it)) {
+                "Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!"
+            }
+        }
     // Global options from parent command.
     private val opts by requireObject<Properties>()
+    private var hasNumOfRuns = false
+    private var hasDuration = false
 
     private val registry = CompositeMeterRegistry()
     private val start = Date().toInstant()
@@ -76,6 +87,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     // entry
     //
     override fun run() {
+
+        hasNumOfRuns = numberOfRuns.isNullOrEmpty().not()
+        hasDuration = duration.isNullOrEmpty().not()
+
+        if( hasNumOfRuns && hasDuration ){
+            println("Error: option --number-of-runs cannot be used with --duration")
+            System.exit(0)
+        }
+
         //TODO show()
         println("kcr.play.id      : ${opts["kcr.id"]}")
         println("kcr.play.topic   : $topic")
@@ -114,10 +134,6 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             }
         })
 
-        // This is the playback offset (from earliest record to now) that is added to each record's timestamp
-        // to determine correct playback time.
-        val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, start)
-
         // Add/overwrite producer config from optional properties file.
         val producerOpts = Properties()
         producerOpts["key.serializer"] = ByteArraySerializer::class.java.canonicalName
@@ -133,25 +149,54 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         var iRuns = 0
 
         val filelist = File(cassette).list()
-        while ( !checkIfDone(iRuns) ) {
-            runBlocking {
-                for (fileName in filelist) {
-                    // Skip manifest file
-                    if (("manifest" in fileName).not()) {
-                        log.trace(".run:file=${fileName}")
-                        val records = recordsProducer(fileName)
-                        // Play records as separate jobs
-                        launch(Dispatchers.IO + CoroutineName("kcr-player")) {
-                            records.consumeEach { record ->
-                                play(client, record, offsetNanos)
+        var cassetteLength = cinfo.cassetteLength.toMillis()
+        var timeLeftMillis: Long = 0
+
+        if(hasDuration){
+            var parts = duration!!.split("h", "m", "s")
+            timeLeftMillis = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
+        }
+
+        val startKcr = Date().toInstant()
+        runBlocking{
+            while ( shouldContinue(iRuns, timeLeftMillis) ) {
+                runBlocking {
+                    // This is the playback offset (from earliest record to now) that is added to each record's timestamp
+                    // to determine correct playback time.
+                    val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, Date().toInstant())
+                    for (fileName in filelist) {
+                        // Skip manifest file
+                        if (("manifest" in fileName).not()) {
+                            log.trace(".run:file=${fileName}")
+                            val records = recordsProducer(fileName)
+                            // Play records as separate jobs
+                            launch(Dispatchers.IO + CoroutineName("kcr-player")) {
+                                records.consumeEach { record ->
+                                    play(client, record, offsetNanos)
+                                }
                             }
                         }
                     }
+
+                    if(hasDuration && (timeLeftMillis < cassetteLength)){
+                        try{
+                            delay(timeLeftMillis)
+                            coroutineContext[Job]?.cancel()
+                            throw Exception("coroutine cancellation")
+                        } catch(e: Exception){
+                            println("kcr.play.runtime : ${Duration.between(startKcr, Date().toInstant())}")
+                            metricDurationTimer.stop(registry.timer("duration-ms"))
+                            System.exit(0)
+                        }
+                    }
                 }
+                iRuns++
+                timeLeftMillis -= cassetteLength
             }
-            iRuns++
+
         }
-        println("kcr.play.runtime : ${Duration.between(start, Date().toInstant())}")
+
+        println("kcr.play.runtime : ${Duration.between(startKcr, Date().toInstant())}")
         metricDurationTimer.stop(registry.timer("duration-ms"))
 
         if (pause) {
@@ -237,13 +282,17 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     }
 
-    private fun checkIfDone(runCount: Int): Boolean {
-        if ( numberOfRuns == 0 || runCount < numberOfRuns ) {
-            return false
+    private fun shouldContinue(runCount: Int, timeLeftMillis: Long) : Boolean {
+        if( hasDuration && timeLeftMillis > 0) {
+            return true
+        } else if( hasNumOfRuns && runCount < numberOfRuns!!.toInt() ) {
+            return true
+        } else if ( !hasNumOfRuns && !hasDuration && runCount == 0){
+            return true
         }
-
-        return true
+        return false
     }
+
 
     //TODO
     private fun mapPartition(partition: Int, numberPartitions: Int): Int {

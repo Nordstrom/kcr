@@ -37,9 +37,10 @@ class CassetteInfo(val cassette: String) {
     }
 
     val earliest: Instant
-    private val latest: Instant
-    private val partitions: MutableList<CassettePartitionInfo> = mutableListOf()
+    val latest: Instant
+    val partitions: MutableList<CassettePartitionInfo> = mutableListOf()
     val totalRecords: Int
+    val cassetteLength: Duration
 
     init {
         val filelist = File(cassette).list()
@@ -55,6 +56,7 @@ class CassetteInfo(val cassette: String) {
         val t1 = partitions.stream().map(CassettePartitionInfo::latest).max(Long::compareTo)
         earliest = Date(t0.get()).toInstant()
         latest = Date(t1.get()).toInstant()
+        cassetteLength = Duration.between(earliest, latest)
         totalRecords = partitions.sumBy { it.count }
     }
 
@@ -65,7 +67,7 @@ class CassetteInfo(val cassette: String) {
 |  o___o  | tracks  : ${partitions.size}
 |__/___\__| songs   : $totalRecords
             recorded: $earliest - $latest
-            length  : ${Duration.between(earliest, latest)}
+            length  : $cassetteLength
         """.trimIndent()
     }
 }
