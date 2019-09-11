@@ -150,14 +150,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
         val filelist = File(cassette).list()
         var cassetteLength = cinfo.cassetteLength.toMillis()
-        var numDuration: Long = 0
+        var timeLeftMillis: Long = 0
 
         if(hasDuration){
             var parts = duration!!.split("h", "m", "s")
-            numDuration = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
+            timeLeftMillis = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
         }
 
-        var timeLeftMillis = numDuration
         val startKcr = Date().toInstant()
         runBlocking{
             while ( shouldContinue(iRuns, timeLeftMillis) ) {
