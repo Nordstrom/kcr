@@ -285,7 +285,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private fun shouldContinue(runCount: Int, timeLeftMillis: Long) : Boolean {
         if( hasDuration && timeLeftMillis > 0) {
             return true
-        } else if( hasNumOfRuns && runCount < numberOfRuns!!.toInt() ) {
+        } else if( hasNumOfRuns && (numberOfRuns!!.toInt() == 0 || runCount < numberOfRuns!!.toInt()) ) {
             return true
         } else if ( !hasNumOfRuns && !hasDuration && runCount == 0){
             return true
