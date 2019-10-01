@@ -154,7 +154,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
         if(hasDuration) {
             runWithDuration(cinfo, client, filelist)
-        } else if(hasNumOfRuns) {
+        } else {
             runWithCount(cinfo, client, filelist)
         }
 
@@ -180,7 +180,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         var parts = duration!!.split("h", "m", "s")
         var timeLeftMillis = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
         // val startKcr = Date().toInstant()
-        while (!abort && shouldContinue(0, timeLeftMillis)) {
+        while (!abort && shouldContinueWithDuration(timeLeftMillis)) {
             val runStart = Date().toInstant()
             runBlocking {
                 try {
@@ -216,7 +216,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     fun runWithCount(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
         var iRuns = 0
-        while (shouldContinue(iRuns, 0)) {
+        while (shouldContinueWithCount(iRuns)) {
             runBlocking {
                 // This is the playback offset (from earliest record to now) that is added to each record's timestamp
                 // to determine correct playback time.
@@ -310,17 +310,23 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     }
 
-    private fun shouldContinue(runCount: Int, timeLeftMillis: Long) : Boolean {
-        if( hasDuration && timeLeftMillis > 0) {
-            return true
-        } else if( hasNumOfRuns && (numberOfRuns!!.toInt() == 0 || runCount < numberOfRuns!!.toInt()) ) {
-            return true
-        } else if ( !hasNumOfRuns && !hasDuration && runCount == 0){
+    private fun shouldContinueWithDuration(timeLeftMillis: Long) : Boolean {
+        if( timeLeftMillis > 0 ) {
             return true
         }
         return false
     }
 
+    private fun shouldContinueWithCount(runCount: Int) : Boolean {
+        if (!hasNumOfRuns && runCount == 0) {
+            return true
+        } else if( hasNumOfRuns && (numberOfRuns!!.toInt() == 0) ) {
+            return true
+        } else if ( hasNumOfRuns && (runCount < numberOfRuns!!.toInt()) ) {
+            return true
+        }
+        return false
+    }
 
     //TODO
     private fun mapPartition(partition: Int, numberPartitions: Int): Int {
