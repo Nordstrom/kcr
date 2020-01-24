@@ -104,7 +104,7 @@ java -jar ./build/libs/kcr.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --secur
 Playback is at the capture rate of the cassette (i.e., if you recorded a stream with 5 message/sec, playback will also be at 5 message/sec)
 
 ```
-java -jar playback --cassette data/my-topic-yyyymmdd_hhmm --topic my-topic-too
+java -jar ./build/libs/kcr.jar play --cassette data/my-topic-yyyymmdd_hhmm --topic my-topic-too
 ```
 
 ### Helper scripts
