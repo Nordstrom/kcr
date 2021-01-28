@@ -9,24 +9,14 @@ import com.nordstrom.kafka.kcr.cassette.CassetteVersion
 import com.nordstrom.kafka.kcr.commands.Play
 import com.nordstrom.kafka.kcr.commands.Record
 import com.nordstrom.kafka.kcr.facilities.AlphaNumKeyGenerator
-import io.micrometer.core.instrument.Clock
-import io.micrometer.core.instrument.binder.kafka.KafkaConsumerMetrics
-import io.micrometer.core.instrument.composite.CompositeMeterRegistry
-import io.micrometer.core.instrument.util.HierarchicalNameMapper
-import io.micrometer.jmx.JmxConfig
-import io.micrometer.jmx.JmxMeterRegistry
-import io.micrometer.statsd.StatsdConfig
-import io.micrometer.statsd.StatsdFlavor
-import io.micrometer.statsd.StatsdMeterRegistry
 import org.slf4j.LoggerFactory
-import java.time.Duration
 import java.util.*
 
 
 class KcrVersion {
     //TODO derive from gradle build.
     companion object {
-        const val VERSION = "0.2"
+        const val VERSION = "2.0"
     }
 }
 

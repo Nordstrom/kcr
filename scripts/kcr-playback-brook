@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+TOPIC=$1
+CASSETTE=$2
+AK="$KAFKA_BROOK_AMUSING_CHIPMUNK_ACCESS_KEY"
+SK="$KAFKA_BROOK_AMUSING_CHIPMUNK_SECRET_KEY"
+BS=$brookBS
+
+#needed to enable monitoring tools if local kafka (jconsole, visualvm, etc)
+#OPTS="-Djava.rmi.server.hostname=127.0.0.1"
+java $OPTS -jar build/libs/kcr.jar --bootstrap-servers $BS --security-protocol SASL_SSL --sasl-mechanism SCRAM-SHA-512 --sasl-username $AK --sasl-password $SK play --topic $TOPIC --cassette $CASSETTE

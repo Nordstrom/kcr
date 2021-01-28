@@ -3,7 +3,6 @@ package com.nordstrom.kafka.kcr.commands
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.requireObject
 import com.github.ajalt.clikt.parameters.options.*
-import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.float
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
 import com.nordstrom.kafka.kcr.cassette.CassetteRecord
@@ -18,6 +17,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.produce
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -31,7 +31,6 @@ import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.system.exitProcess
 
 class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka topic.") {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -40,7 +39,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val cassette by option(help = "Kafka Cassette Recorder directory for playback (REQUIRED)")
         .required()
         .validate {
-            require(!it.isEmpty()) { "--cassette value cannot be blank" }
+            require(it.isNotEmpty()) { "--cassette value cannot be blank" }
             require(!File(it).list().isNullOrEmpty()) { "--cassette $it is empty or invalid" }
         }
     //NB: This initial version can only playback at the capture rate.
@@ -50,7 +49,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val topic by option(help = "Kafka topic to write (REQUIRED)")
         .required()
         .validate {
-            require(!it.isEmpty()) { "'topic' value cannot be empty or null" }
+            require(it.isNotEmpty()) { "'topic' value cannot be empty or null" }
         }
     private val producerConfig by option(help = "Optional Kafka Producer configuration file. OVERWRITES any command-line values.")
 
@@ -76,7 +75,6 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val start = Date().toInstant()
 
     private var numberPartitions = 0
-    private var num = 0
     private val metricElapsedMillis: AtomicLong?
 
     init {
@@ -175,9 +173,9 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     }
 
-    fun runWithDuration(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
+    private fun runWithDuration(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
         var abort = false
-        var parts = duration!!.split("h", "m", "s")
+        val parts = duration!!.split("h", "m", "s")
         var timeLeftMillis = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
         // val startKcr = Date().toInstant()
         while (!abort && shouldContinueWithDuration(timeLeftMillis)) {
@@ -214,7 +212,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     }
 
-    fun runWithCount(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
+    private fun runWithCount(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
         var iRuns = 0
         while (shouldContinueWithCount(iRuns)) {
             runBlocking {
@@ -242,6 +240,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     }
 
     // Produces CassetteRecords by reading the partition file.
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun CoroutineScope.recordsProducer(fileName: String): ReceiveChannel<CassetteRecord> = produce {
         val partitionNumber = fileName.substringAfterLast("-")
         val metricDurationTimer = Timer.start()
@@ -254,8 +253,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                 // Convert to CassetteRecord.
                 // We use json format for now, but will need to write/read bytes to accommodate
                 // any kind of payload in the topic.
-                @UseExperimental(kotlinx.serialization.UnstableDefault::class)
-                val record = Json.parse(CassetteRecord.serializer(), line)
+                val record = Json.decodeFromString<CassetteRecord>(line)
                 //TODO adjust timestamp to control playback rate?
                 send(record)
                 metricSend.increment()
@@ -278,7 +276,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         val whenToSend = ts.plusNanos(offsetNanos)
         val wait = Duration.between(now, whenToSend)
 
-        var millis = when (playbackRate > 0.0) {
+        val millis = when (playbackRate > 0.0) {
             true -> (wait.toMillis().toFloat() / playbackRate).toLong()
             //NB: playbackRate == 0, records will not be written in capture order.
             false -> 0L

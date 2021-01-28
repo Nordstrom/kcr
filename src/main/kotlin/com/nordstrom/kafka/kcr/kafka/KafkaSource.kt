@@ -10,7 +10,7 @@ import java.util.*
 
 class KafkaSource(
     config: Properties,
-    val topic: String,
+    private val topic: String,
     private val partitionNumber: Int
 ) : Source {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -23,6 +23,7 @@ class KafkaSource(
         consumerConfig["key.deserializer"] = BYTE_ARRAY_DESERIALIZER
         consumerConfig["value.deserializer"] = BYTE_ARRAY_DESERIALIZER
         consumerConfig["enable.auto.commit"] = "true"
+        consumerConfig["auto.offset.reset"] = "latest"
 
         client = KafkaConsumer<ByteArray, ByteArray>(consumerConfig)
 

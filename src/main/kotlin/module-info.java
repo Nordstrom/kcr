@@ -16,5 +16,6 @@ module com.nordstrom.kafka.kcr {
     requires micrometer.registry.statsd;
 
     requires slf4j.api;
+    requires rt;
 
 }

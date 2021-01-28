@@ -1,5 +1,6 @@
 package com.nordstrom.kafka.kcr.cassette
 
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.Duration
@@ -20,8 +21,7 @@ class CassetteInfo(val cassette: String) {
             count = 0
             reader.useLines { lines ->
                 lines.forEach { line ->
-                    @UseExperimental(kotlinx.serialization.UnstableDefault::class)
-                    val record = Json.parse(CassetteRecord.serializer(), line)
+                    val record = Json.decodeFromString<CassetteRecord>(line)
                     if (record.timestamp < first) {
                         first = record.timestamp
                     }
