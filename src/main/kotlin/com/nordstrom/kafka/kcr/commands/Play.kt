@@ -44,7 +44,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             require(!File(it).list().isNullOrEmpty()) { "--cassette $it is empty or invalid" }
         }
     //NB: This initial version can only playback at the capture rate.
-    private val playbackRate: Float by option(help = "Playback rate multiplier (1.0 = play at capture rate, 2.0 = playback at twice capture rate)").float()
+    private val playbackRate: Float by option(help = "Playback rate multiplier (0 = playback as fast as possible, 1.0 = play at capture rate, 2.0 = playback at twice capture rate)").float()
         .default(1.0f)
 
     private val topic by option(help = "Kafka topic to write (REQUIRED)")
@@ -76,6 +76,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val start = Date().toInstant()
 
     private var numberPartitions = 0
+    private var num = 0
     private val metricElapsedMillis: AtomicLong?
 
     init {
@@ -146,54 +147,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         }
         producerOpts.putAll(cleanOpts)
         val client = KafkaProducer<ByteArray, ByteArray>(producerOpts)
-        var iRuns = 0
 
         val filelist = File(cassette).list()
-        var cassetteLength = cinfo.cassetteLength.toMillis()
-        var timeLeftMillis: Long = 0
-
-        if(hasDuration){
-            var parts = duration!!.split("h", "m", "s")
-            timeLeftMillis = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
-        }
 
         val startKcr = Date().toInstant()
-        runBlocking{
-            while ( shouldContinue(iRuns, timeLeftMillis) ) {
-                runBlocking {
-                    // This is the playback offset (from earliest record to now) that is added to each record's timestamp
-                    // to determine correct playback time.
-                    val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, Date().toInstant())
-                    for (fileName in filelist) {
-                        // Skip manifest file
-                        if (("manifest" in fileName).not()) {
-                            log.trace(".run:file=${fileName}")
-                            val records = recordsProducer(fileName)
-                            // Play records as separate jobs
-                            launch(Dispatchers.IO + CoroutineName("kcr-player")) {
-                                records.consumeEach { record ->
-                                    play(client, record, offsetNanos)
-                                }
-                            }
-                        }
-                    }
 
-                    if(hasDuration && (timeLeftMillis < cassetteLength)){
-                        try{
-                            delay(timeLeftMillis)
-                            coroutineContext[Job]?.cancel()
-                            throw Exception("coroutine cancellation")
-                        } catch(e: Exception){
-                            println("kcr.play.runtime : ${Duration.between(startKcr, Date().toInstant())}")
-                            metricDurationTimer.stop(registry.timer("duration-ms"))
-                            System.exit(0)
-                        }
-                    }
-                }
-                iRuns++
-                timeLeftMillis -= cassetteLength
-            }
-
+        if(hasDuration) {
+            runWithDuration(cinfo, client, filelist)
+        } else {
+            runWithCount(cinfo, client, filelist)
         }
 
         println("kcr.play.runtime : ${Duration.between(startKcr, Date().toInstant())}")
@@ -209,6 +171,72 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             while (true) {
                 Thread.sleep(500L)
             }
+        }
+
+    }
+
+    fun runWithDuration(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
+        var abort = false
+        var parts = duration!!.split("h", "m", "s")
+        var timeLeftMillis = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
+        // val startKcr = Date().toInstant()
+        while (!abort && shouldContinueWithDuration(timeLeftMillis)) {
+            val runStart = Date().toInstant()
+            runBlocking {
+                try {
+                    withTimeout(timeLeftMillis) {
+                        // This is the playback offset (from earliest record to now) that is added to each record's timestamp
+                        // to determine correct playback time.
+                        val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, Date().toInstant())
+                        for (fileName in filelist) {
+                            // Skip manifest file
+                            if (("manifest" in fileName).not()) {
+                                log.trace(".run:file=${fileName}")
+                                val records = recordsProducer(fileName)
+                                // Play records as separate jobs
+                                launch(Dispatchers.IO + CoroutineName("kcr-player")) {
+                                    records.consumeEach { record ->
+                                        play(client, record, offsetNanos)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    abort = true
+                }
+            } //-runBlocking
+ 
+            val dt = Duration.between(runStart, Date().toInstant())
+            // println( "runBlocking.OK:" + dt + ", elapsed=" + Duration.between(startKcr, Date().toInstant()) )
+            timeLeftMillis -= dt.toMillis()
+        }   //-while
+
+    }
+
+    fun runWithCount(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
+        var iRuns = 0
+        while (shouldContinueWithCount(iRuns)) {
+            runBlocking {
+                // This is the playback offset (from earliest record to now) that is added to each record's timestamp
+                // to determine correct playback time.
+                val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, Date().toInstant())
+                for (fileName in filelist) {
+                    // Skip manifest file
+                    if (("manifest" in fileName).not()) {
+                        log.trace(".run:file=${fileName}")
+                        val records = recordsProducer(fileName)
+                        // Play records as separate jobs
+                        launch(Dispatchers.IO + CoroutineName("kcr-player")) {
+                            records.consumeEach { record ->
+                                play(client, record, offsetNanos)
+                            }
+                        }
+                    }
+                }
+            }
+            iRuns++
+            // println( "run number:" + iRuns )
         }
 
     }
@@ -282,17 +310,23 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
 
     }
 
-    private fun shouldContinue(runCount: Int, timeLeftMillis: Long) : Boolean {
-        if( hasDuration && timeLeftMillis > 0) {
-            return true
-        } else if( hasNumOfRuns && (numberOfRuns!!.toInt() == 0 || runCount < numberOfRuns!!.toInt()) ) {
-            return true
-        } else if ( !hasNumOfRuns && !hasDuration && runCount == 0){
+    private fun shouldContinueWithDuration(timeLeftMillis: Long) : Boolean {
+        if( timeLeftMillis > 0 ) {
             return true
         }
         return false
     }
 
+    private fun shouldContinueWithCount(runCount: Int) : Boolean {
+        if (!hasNumOfRuns && runCount == 0) {
+            return true
+        } else if( hasNumOfRuns && (numberOfRuns!!.toInt() == 0) ) {
+            return true
+        } else if ( hasNumOfRuns && (runCount < numberOfRuns!!.toInt()) ) {
+            return true
+        }
+        return false
+    }
 
     //TODO
     private fun mapPartition(partition: Int, numberPartitions: Int): Int {
