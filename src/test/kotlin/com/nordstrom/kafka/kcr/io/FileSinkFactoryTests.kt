@@ -1,43 +1,42 @@
 package com.nordstrom.kafka.kcr.io
 
 import com.nordstrom.kafka.kcr.facilities.AlphaNumKeyGenerator
-import io.kotlintest.matchers.string.shouldContain
-import io.kotlintest.matchers.string.shouldEndWith
-import io.kotlintest.shouldNotBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import java.io.File
-import javax.crypto.KeyGenerator
+import java.nio.file.Files
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
-class FileSinkFactoryTests : StringSpec({
+class FileSinkFactoryTests {
 
-    val folder = createTempDir()
-    val sinkFactory = FileSinkFactory()
-    val keyGen = AlphaNumKeyGenerator()
+    private var folder = Files.createTempDirectory("CassetteTests").toFile().absolutePath
+    private val sinkFactory = FileSinkFactory()
+    private val keyGen = AlphaNumKeyGenerator()
 
-    "Factory can create a FileSink with no parent" {
+    @Test
+    fun `Factory can create a FileSink with no parent`() {
         val suffix = keyGen.key(8)
-        val sink = sinkFactory.create(name = "${folder.absolutePath}$suffix")
+        val sink = sinkFactory.create(name = "$folder$suffix")
         assertNotNull(sink)
-
-        if (sink is FileSink) {
-            sink.file.shouldNotBe(null)
-            sink.path.shouldEndWith(suffix)
+        when (sink) {
+            is FileSink -> {
+                assertNotNull(sink.file)
+                assertTrue(sink.path.endsWith(suffix))
+            }
         }
     }
 
-    "Trying to create an existing FileSink throws an exception" {
+    @Test
+    fun `Trying to create an existing FileSink throws an exception`() {
         val filename = keyGen.key(8)
         val f = File(folder, filename)
         f.createNewFile()
 
-        val exception = shouldThrow<FileAlreadyExistsException> {
+        val e1 = assertFailsWith<FileAlreadyExistsException> {
             FileSink(name = f.absolutePath)
         }
-        exception.message shouldContain (filename)
+        e1.message?.contains(filename)?.let { kotlin.test.assertTrue(it, "file name") }
     }
 
-}) {
-    // add functions here
 }

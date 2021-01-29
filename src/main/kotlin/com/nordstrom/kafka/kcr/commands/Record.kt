@@ -2,11 +2,7 @@ package com.nordstrom.kafka.kcr.commands
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.requireObject
-import com.github.ajalt.clikt.parameters.options.default
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.clikt.parameters.options.validate
-import com.nordstrom.kafka.kcr.Kcr
+import com.github.ajalt.clikt.parameters.options.*
 import com.nordstrom.kafka.kcr.Kcr.Companion.id
 import com.nordstrom.kafka.kcr.cassette.Cassette
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
@@ -53,6 +49,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             }
         }
     private var hasDuration = false
+    private val timestampHeaderName by option(help = "Kafka message header to extract a record timestamp in epoch format, ignoring record timestamp")
+        .default("")
     private val consumerConfig by option(help = "Optional Kafka Consumer configuration file. OVERWRITES any command-line values.")
 
     // Global options from parent command.
@@ -84,7 +82,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         // Add/overwrite consumer config from optional properties file.
         val consumerOpts = Properties()
         if (consumerConfig.isNullOrEmpty().not()) {
-            val insConsumerConfig = FileInputStream(consumerConfig)
+            val insConsumerConfig = FileInputStream(consumerConfig!!)
             consumerOpts.load(insConsumerConfig)
             cleanOpts.putAll(consumerOpts)
         }
@@ -93,6 +91,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         val admin = KafkaAdminClient(cleanOpts)
         val numberPartitions = admin.numberPartitions(topic)
         println("kcr.record.topic.partitions: $numberPartitions")
+        println("kcr.record.duration        : $duration")
+        println("kcr.header.timestamp       : $timestampHeaderName")
 
         // Create a cassette and start recording topic messages
         val sinkFactory = FileSinkFactory()
@@ -113,7 +113,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             for (partitionNumber in 0 until numberPartitions) {
                 val source = cassette.sources[partitionNumber]
                 val sink = cassette.sinks[partitionNumber]
-                val recorder = Recorder(source, sink)
+                val recorder = Recorder(source, sink, timestampHeaderName)
                 runBlocking {
                     GlobalScope.launch(Dispatchers.IO + CoroutineName("kcr-recorder")) {
                         recorder.record(partitionNumber, registry)
@@ -123,8 +123,8 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
             if(hasDuration){
                 try{
-                    var parts = duration!!.split("h", "m", "s")
-                    var numDuration: Long = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
+                    val parts = duration!!.split("h", "m", "s")
+                    val numDuration: Long = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
                     delay(numDuration)
                     coroutineContext[Job]?.cancel()
                     throw Exception("coroutine cancellation")
@@ -164,7 +164,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
     }
 
     companion object {
-        val DEFAULT_CASSETTE_DIR = "kcr"
+        const val DEFAULT_CASSETTE_DIR = "kcr"
     }
 
 }

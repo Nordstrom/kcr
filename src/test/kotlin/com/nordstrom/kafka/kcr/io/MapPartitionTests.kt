@@ -1,21 +1,21 @@
 package com.nordstrom.kafka.kcr.io
 
-import io.kotlintest.matchers.numerics.shouldBeBetween
-import io.kotlintest.specs.StringSpec
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
-class MapPartitionTests : StringSpec({
+class MapPartitionTests {
 
-    "Can map larger to smaller" {
+    @Test
+    fun `Can map larger to smaller`() {
         for (i in 0..LARGER_TOPIC) {
-            (i % SMALLER_TOPIC).shouldBeBetween(0, SMALLER_TOPIC)
-//            println("${i % SMALLER_TOPIC}")
+            assertTrue((i % SMALLER_TOPIC) >= 0)
+            assertTrue((i % SMALLER_TOPIC) <= SMALLER_TOPIC)
         }
     }
-}) {
 
     companion object {
-        val SMALLER_TOPIC = 5
-        val LARGER_TOPIC = 10
+        const val SMALLER_TOPIC = 5
+        const val LARGER_TOPIC = 10
     }
 
 }

@@ -2,4 +2,4 @@
 
 #needed to enable monitoring tools (jconsole, visualvm, etc)
 OPTS="-Djava.rmi.server.hostname=127.0.0.1"
-java $OPTS -jar build/libs/kcr.jar $@
+java $OPTS -jar build/libs/kcr-all.jar $@

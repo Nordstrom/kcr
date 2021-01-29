@@ -1,67 +1,67 @@
 package com.nordstrom.kafka.kcr.io
 
 import com.nordstrom.kafka.kcr.facilities.AlphaNumKeyGenerator
-import io.kotlintest.matchers.string.shouldContain
-import io.kotlintest.matchers.string.shouldEndWith
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import java.io.File
+import java.nio.file.Files
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
-class FileSinkTests : StringSpec({
+class FileSinkTests {
 
-    val folder = createTempDir()
-    val keyGen = AlphaNumKeyGenerator()
+    private var folder = Files.createTempDirectory("CassetteTests").toFile().absolutePath
+    private val keyGen = AlphaNumKeyGenerator()
 
-    "Can create a FileSink" {
+    @Test
+    fun `Can create a FileSink`() {
         val suffix = keyGen.key(8)
-        val sink = FileSink(name = "${folder.absolutePath}$suffix")
+        val sink = FileSink(name = "$folder$suffix")
         assertNotNull(sink)
-
-        sink.path.shouldEndWith(suffix)
+        assertTrue(sink.path.endsWith(suffix))
     }
 
-    "Trying to create a FileSink that already exists throws an exception" {
+    @Test
+    fun
+            `Trying to create a FileSink that already exists throws an exception`() {
         val filename = keyGen.key(8)
         val f = File(folder, filename)
         f.createNewFile()
-
-        val exception = shouldThrow<FileAlreadyExistsException> {
+        val e1 = assertFailsWith<FileAlreadyExistsException> {
             FileSink(name = f.absolutePath)
         }
-        exception.message shouldContain (filename)
+        e1.message?.contains(filename)?.let { kotlin.test.assertTrue(it, "file name") }
     }
 
-    "Can create a FileSink with a parent folder" {
+    @Test
+    fun `Can create a FileSink with a parent folder`() {
         val filename = keyGen.key(8)
-        val parentDir = folder.absolutePath
+        val parentDir = folder
         val sink = FileSink(parent = parentDir, name = filename)
 
         val p = File(parentDir)
-        p.isDirectory.shouldBe(true)
-
-        sink.path.shouldEndWith("/$filename")
+        assertTrue(p.isDirectory)
+        assertTrue(sink.path.endsWith("/$filename"))
         val f = File(sink.path)
-        f.isFile.shouldBe(true)
+        assertTrue(f.isFile)
     }
-    "Can create a FileSink with a parent folder path" {
+
+    @Test
+    fun `Can create a FileSink with a parent folder path`() {
         val filename = keyGen.key(8)
         val d1 = keyGen.key(8)
         val d2 = keyGen.key(8)
         val d3 = keyGen.key(8)
-        val parentDir = "${folder.absolutePath}/$d1/$d2/$d3"
+        val parentDir = "$folder/$d1/$d2/$d3"
         val sink = FileSink(parent = parentDir, name = filename)
 
         val p = File(parentDir)
-        p.isDirectory.shouldBe(true)
-        p.absolutePath.shouldEndWith("/$d1/$d2/$d3")
+        assertTrue(p.isDirectory)
+        assertTrue(p.absolutePath.endsWith("/$d1/$d2/$d3"))
 
         val f = File(sink.path)
-        f.isFile.shouldBe(true)
-        f.absolutePath.shouldEndWith("/$d1/$d2/$d3/$filename")
+        assertTrue(f.isFile)
+        assertTrue(f.absolutePath.endsWith("/$d1/$d2/$d3/$filename"))
     }
 
-}) {
-    // add functions here
 }
