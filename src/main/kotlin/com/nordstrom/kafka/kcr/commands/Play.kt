@@ -56,7 +56,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private val info by option(help = "List information about a Cassette, then exit").flag()
     private val pause by option(help = "Pause at end of playback (ctrl-c to exit)").flag()
 
-    private val numberOfRuns by option(help = "Number of times to run the playback")
+    private val numberOfPlays by option(help = "Number of times to play the cassette")
     
 
     private val duration by option(help = "Kafka duration for playback, format must be like **h**m**s")
@@ -87,7 +87,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     //
     override fun run() {
 
-        hasNumOfRuns = numberOfRuns.isNullOrEmpty().not()
+        hasNumOfRuns = numberOfPlays.isNullOrEmpty().not()
         hasDuration = duration.isNullOrEmpty().not()
 
         if( hasNumOfRuns && hasDuration ){
@@ -318,9 +318,9 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     private fun shouldContinueWithCount(runCount: Int) : Boolean {
         if (!hasNumOfRuns && runCount == 0) {
             return true
-        } else if( hasNumOfRuns && (numberOfRuns!!.toInt() == 0) ) {
+        } else if( hasNumOfRuns && (numberOfPlays!!.toInt() == 0) ) {
             return true
-        } else if ( hasNumOfRuns && (runCount < numberOfRuns!!.toInt()) ) {
+        } else if ( hasNumOfRuns && (runCount < numberOfPlays!!.toInt()) ) {
             return true
         }
         return false

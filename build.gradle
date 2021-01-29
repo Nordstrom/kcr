@@ -1,16 +1,17 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "$kotlinVersion"
-    id("org.jetbrains.kotlin.plugin.serialization") version "$kotlinVersion"
+    // NB: plugin versions pinned in settings.gradle
+    id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("application")
-    id("com.github.johnrengelman.shadow") version "5.2.0"
-    id("com.adarshr.test-logger") version "2.1.1"
+    id("com.github.johnrengelman.shadow")
+    id("com.adarshr.test-logger")
+    id("com.diffplug.spotless")
 }
 
 ext {
     commonsCodecVersion = "1.15"
     kafkaVersion = "2.5.1"
 
-    kotlinVersion = "1.4.21"
     kotlinxCoroutinesVersion = "1.4.2"
     kotlinxSerializationVersion = "1.0.0"
     kotestVersion = "4.3.1"
@@ -70,6 +71,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
     }
 }
+
 test {
     useJUnitPlatform()
 
@@ -80,5 +82,12 @@ test {
         theme("mocha-parallel")
         showExceptions(true)
         showStandardStreams(true)
+    }
+}
+
+spotless {
+    java {
+        googleJavaFormat("1.9")
+        removeUnusedImports()
     }
 }

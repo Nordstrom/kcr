@@ -17,7 +17,7 @@ import java.time.Instant
 class Recorder(
     private val source: Source?,
     val sink: Sink?,
-    private val headerTimestamp: String,
+    private val timestampHeaderName: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -50,15 +50,22 @@ class Recorder(
                         key = k,
                         value = Hex.encodeHex(it.value()).joinToString("")
                     )
-                    log.debug(".record: ts=${Instant.ofEpochMilli(it.timestamp())}, type=${it.timestampType()}, p=${it.partition()}, o=${it.offset()}, k=${k}")
+                    log.debug(
+                        ".record: ts={}, type={}, p={}, o={}, k={}",
+                        Instant.ofEpochMilli(it.timestamp()),
+                        it.timestampType(),
+                        it.partition(),
+                        it.offset(),
+                        k
+                    )
                     it.headers().forEach { header ->
                         record.headers[header.key()] = String(header.value())
                     }
-                    if (headerTimestamp.isNotBlank()) {
-                        record.withHeaderTimestamp(headerTimestamp)
+                    if (timestampHeaderName.isNotBlank()) {
+                        record.withHeaderTimestamp(timestampHeaderName)
                     }
                     val data = Json.encodeToString(record)
-                    log.debug(".record: $data")
+                    log.debug(".record: {}", data)
                     sink?.writeText("$data\n")
                     metricWrite.increment()
                     metricWriteTotal.increment()
