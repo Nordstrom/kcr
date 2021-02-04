@@ -1,6 +1,6 @@
 data
 bin
-kcr
+/kcr
 
 HELP.md
 .gradle

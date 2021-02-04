@@ -6,6 +6,7 @@ pluginManagement {
         id("com.github.johnrengelman.shadow") version "5.2.0"
         id("com.adarshr.test-logger") version "2.1.1"
         id("com.diffplug.spotless") version "5.9.0"
+        id("net.nemerosa.versioning") version "2.11.0"
     }
 }
 
