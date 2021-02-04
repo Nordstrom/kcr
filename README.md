@@ -1,6 +1,8 @@
 # kcr
 Kafka Cassette Recorder
 
+NB: V2.0 had a bug that did not allow playback. DO NOT USE
+
 A utility to record and playback messages from any Kafka topic.  This tool can be useful to capture
 production data streams for playback in a disaster recovery scenario or for load testing.
 
