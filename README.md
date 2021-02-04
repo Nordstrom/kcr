@@ -4,7 +4,7 @@ Kafka Cassette Recorder
 A utility to record and playback messages from any Kafka topic.  This tool can be useful to capture
 production data streams for playback in a disaster recovery scenario or for load testing.
 
-Message key and value are stored as ASCII-encoded hexidecimal along with message header parameters
+Message key and value are stored as ASCII-encoded hexadecimal along with message header parameters
 (stored as string key/value).
 
 Messages are stored in a 'cassette' (data directory) by partition.  Playback of a cassette is at the
@@ -16,73 +16,89 @@ Storage format is in json.
 ## Usage
 
 ```
-$ kcr --help
+$ ./kcr.sh help
 
-Usage: kcr [OPTIONS] COMMAND [ARGS]...
-
-  Apache Kafka topic record/playback tool
-
-Options:
-  --bootstrap-servers TEXT  Kafka bootstrap server list
-  --security-protocol TEXT  Security protocol
-  --sasl-mechanism TEXT     SASL mechanism
-  --sasl-username TEXT      SASL username
-  --sasl-password TEXT      SASL password
-  -h, --help                Show this message and exit
-
+Usage: kcr [-hV] [--bootstrap-servers=<bootstrapServers>] [--sasl-mechanism=<saslMechanism>]
+           [--sasl-password=<saslPassword>] [--sasl-username=<saslUsername>] [--security-protocol=<securityProtocol>]
+           [COMMAND]
+      --bootstrap-servers=<bootstrapServers>
+                  Kafka bootstrap server list; default: localhost:9092
+  -h, --help      Show this help message and exit.
+      --sasl-mechanism=<saslMechanism>
+                  SASL mechanism; default: SCRAM-SHA-512
+      --sasl-password=<saslPassword>
+                  SASL password
+      --sasl-username=<saslUsername>
+                  SASL username
+      --security-protocol=<securityProtocol>
+                  Security protocol; default: PLAINTEXT
+  -V, --version   Print version information and exit.
 Commands:
   play    Playback a cassette to a Kafka topic.
   record  Record a Kafka topic to a cassette.
-
-v0.1/0.1
+  help    Displays help information about the specified command
 ```
 
 ### Record
 
 ```
-$ kcr record --help
+$ ./kcr.sh record help
 
-Usage: kcr record [OPTIONS]
-
-  Record a Kafka topic to a cassette.
-
-Options:
-  --data-directory TEXT    Kafka Cassette Recorder data directory for
-                           recording (default=kcr)
-  --group-id TEXT          Kafka consumer group id (default=kcr-<topic>-gid)
-  --topic TEXT             Kafka topic to record (REQUIRED)
-  --duration TEXT          Kafka duration for recording, format must be like
-                           **h**m**s
-  --header-timestamp TEXT  Use timestamp from header parameter ignoring record
-                           timestamp
-  --consumer-config TEXT   Optional Kafka Consumer configuration file.
-                           OVERWRITES any command-line values.
-  -h, --help               Show this message and exit
+Usage: kcr record [-hV] [--consumer-config=<properties>]
+                  [--data-directory=<dataDirectory>]
+                  [--duration=<durationValue>] [--group-id=<groupId>]
+                  [--timestamp-header-name=<timestampHeaderName>]
+                  --topic=<topic>
+Record a Kafka topic to a cassette.
+      --consumer-config=<properties>
+                             Optional Kafka Consumer configuration file.
+                               OVERWRITES any command-line values.
+      --data-directory=<dataDirectory>
+                             Kafka Cassette Recorder data directory for
+                               recording (default=kcr)
+      --duration=<durationValue>
+                             Duration for playback; format must be like
+                               **h**m**s
+      --group-id=<groupId>   Kafka consumer group id (default=kcr-<topic>-gid)
+  -h, --help                 Show this help message and exit.
+      --timestamp-header-name=<timestampHeaderName>
+                             Kafka message header parameter to extract and use
+                               as the record timestamp in epoch format,
+                               ignoring record timestamp
+      --topic=<topic>        Kafka topic to record
+  -V, --version              Print version information and exit.
 ```
 
 ### Play
 
 ```
-$kcr play --help
+$./kcr play help
 
-Usage: kcr play [OPTIONS]
-
-  Playback a cassette to a Kafka topic.
-
-Options:
-  --cassette TEXT         Kafka Cassette Recorder directory for playback
-                          (REQUIRED)
-  --playback-rate FLOAT   Playback rate multiplier (1.0 = play at capture
-                          rate, 2.0 = playback at twice capture rate)
-  --topic TEXT            Kafka topic to write (REQUIRED)
-  --producer-config TEXT  Optional Kafka Producer configuration file.
-                          OVERWRITES any command-line values.
-  --info                  List information about a Cassette, then exit
-  --pause                 Pause at end of playback (ctrl-c to exit)
-  --number-of-runs TEXT   Number of times to run the playback
-  --duration TEXT         Kafka duration for playback, format must be like
-                          **h**m**s
-  -h, --help              Show this message and exit
+Usage: kcr play [-hV] [--info] [--pause] --cassette=<cassette>
+                [--duration=<durationValue>]
+                [--number-of-plays=<numberOfPlaysValue>]
+                [--playback-rate=<playbackRate>]
+                [--producer-config=<properties>] --topic=<topic>
+Playback a cassette to a Kafka topic.
+      --cassette=<cassette>
+                        Kafka Cassette Recorder cassette directory for playback
+      --duration=<durationValue>
+                        Duration for playback; format must be like **h**m**s
+  -h, --help            Show this help message and exit.
+      --info            List information about a cassette, then exit
+                          (default=false)
+      --number-of-plays=<numberOfPlaysValue>
+                        Number of times to play the cassette
+      --pause           Pause at end of playback; ctrl-c to exit (default=false)
+      --playback-rate=<playbackRate>
+                        Playback rate multiplier (0 = playback as fast as
+                          possible, 1.0 = play at capture rate, 2.0 = playback
+                          at twice capture rate, default=1.0)
+      --producer-config=<properties>
+                        Optional Kafka Producer configuration file. OVERWRITES
+                          any command-line values.
+      --topic=<topic>   Kafka topic to write.
+  -V, --version         Print version information and exit.
 ```
 
 ## Metrics
@@ -118,13 +134,13 @@ gradle clean build
 Create a recording from a simple, local cluster:
 
 ```
-java -jar ./build/libs/kcr-all.jar record --topic my-topic --data-directory data
+./kcr.sh record --topic my-topic --data-directory data
 ```
 
 Create a recording from secure cluster, like Confluent Cloud:
 
 ```
-java -jar ./build/libs/kcr-all.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic my-topic --data-directory data
+./kcr.sh --bootstrap-servers $MY_BOOTSTRAP_SERVERS --security-protocol SASL_PLAIN --sasl-mechanism PLAIN --sasl-username $MY_SASL_USERNAME --sasl-password $MY_SASL_PASSWORD record --topic my-topic --data-directory data
 ```
 
 ### Playback (wip)
@@ -132,21 +148,7 @@ java -jar ./build/libs/kcr-all.jar --bootstrap-servers $MY_BOOTSTRAP_SERVERS --s
 Playback is at the capture rate of the cassette (i.e., if you recorded a stream with 5 message/sec, playback will also be at 5 message/sec)
 
 ```
-java -jar ./build/libs/kcr-all.jar play --cassette data/my-topic-yyyymmdd_hhmm --topic my-topic-too
-```
-
-### Helper scripts
-
-```
-./scripts/kcr-record <TOPIC>
-
-#e.g., ./scripts/kcr-record sea-of-time
-```
-
-```
-./scripts/kcr-playback <TARGET_TOPIC> <CASSETTE_DIR>
-
-#e.g., ./scripts/kcr-playback sea-of-science ./data/kcr-sea-of-time-20190517-1708
+./kcr.sh play --cassette data/my-topic-yyyymmdd_hhmm --topic my-topic-too
 ```
 
 # Example
@@ -158,6 +160,5 @@ The `./example` directory has a `docker-compose.yml` that will start a local kaf
 
 # Roadmap
 
-* Switch to `picocli` for command-line arguments
-* Use `avro` for cassette format
 * Record / playback from AWS S3
+* Use `avro` for cassette format

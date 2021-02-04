@@ -1,11 +1,10 @@
 package com.nordstrom.kafka.kcr.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.core.requireObject
-import com.github.ajalt.clikt.parameters.options.*
-import com.nordstrom.kafka.kcr.Kcr.Companion.id
+import com.nordstrom.kafka.kcr.Kcr
 import com.nordstrom.kafka.kcr.cassette.Cassette
 import com.nordstrom.kafka.kcr.cassette.CassetteInfo
+import com.nordstrom.kafka.kcr.commands.options.ConsumerConfigOption
+import com.nordstrom.kafka.kcr.commands.options.DurationOption
 import com.nordstrom.kafka.kcr.io.FileSinkFactory
 import com.nordstrom.kafka.kcr.kafka.KafkaAdminClient
 import com.nordstrom.kafka.kcr.kafka.KafkaSourceFactory
@@ -16,46 +15,62 @@ import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry
 import io.micrometer.jmx.JmxMeterRegistry
 import kotlinx.coroutines.*
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import picocli.CommandLine
 import sun.misc.Signal
 import sun.misc.SignalHandler
-import java.io.FileInputStream
+import java.lang.invoke.MethodHandles
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 
-class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a cassette.") {
-    private val log = LoggerFactory.getLogger(javaClass)
+@CommandLine.Command(
+    name = "record",
+    description = ["Record a Kafka topic to a cassette."],
+    mixinStandardHelpOptions = true,
+    helpCommand = true,
+)
+class RecordCommand : Runnable {
+    @CommandLine.Spec
+    lateinit var spec: CommandLine.Model.CommandSpec // injected by picocli
 
-    // Record options
-    private val dataDirectory by option(help = "Kafka Cassette Recorder data directory for recording (default=$DEFAULT_CASSETTE_DIR)")
-        .default(DEFAULT_CASSETTE_DIR)
+    @CommandLine.ParentCommand
+    lateinit var parent: Kcr
 
-    private val groupId by option(help = "Kafka consumer group id (default=kcr-<topic>-gid)")
-        .validate {
-            require(it.isNotEmpty()) { "'group-id' value cannot be empty or null" }
-        }
+    @CommandLine.Mixin
+    lateinit var duration: DurationOption
 
-    private val topic by option(help = "Kafka topic to record (REQUIRED)")
-        .required()
-        .validate {
-            require(it.isNotEmpty()) { "'topic' value cannot be empty or null" }
-        }
-    private val duration by option(help = "Kafka duration for recording, format must be like **h**m**s")
-        .validate {
-            require(it.isNotEmpty()) { "'duration' value cannot be empty or null" }
-            require(Regex("""(\d.*)h(\d.*)m(\d.*)s""").matches(input = it)) {
-                "Duration must be in the format of **h**m**s, '**' must be integer or decimal. Please try again!"
-            }
-        }
-    private var hasDuration = false
-    private val timestampHeaderName by option(help = "Kafka message header to extract a record timestamp in epoch format, ignoring record timestamp")
-        .default("")
-    private val consumerConfig by option(help = "Optional Kafka Consumer configuration file. OVERWRITES any command-line values.")
+    @CommandLine.Mixin
+    lateinit var consumerConfig: ConsumerConfigOption
 
-    // Global options from parent command.
-    private val opts by requireObject<Properties>()
-    
+    @CommandLine.Option(
+        names = ["--data-directory"],
+        defaultValue = "kcr",
+        description = ["Kafka Cassette Recorder data directory for recording (default=kcr)"],
+        required = true,
+    )
+    lateinit var dataDirectory: String
+
+    @CommandLine.Option(
+        names = ["--topic"],
+        description = ["Kafka topic to record"],
+        required = true,
+    )
+    lateinit var topic: String
+
+    @CommandLine.Option(
+        names = ["--group-id"],
+        description = ["Kafka consumer group id (default=kcr-<topic>-gid)"],
+    )
+    var groupId: String = ""
+
+    @CommandLine.Option(
+        names = ["--timestamp-header-name"],
+        description = ["Kafka message header parameter to extract and use as the record timestamp in epoch format, ignoring record timestamp"],
+    )
+    var timestampHeaderName: String = ""
+
     val registry = CompositeMeterRegistry()
     private val start = Date().toInstant()
 
@@ -64,39 +79,32 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
         //TODO Add common tag 'id'
     }
 
-
-    //
-    // entry
-    //
     override fun run() {
-        hasDuration = duration.isNullOrEmpty().not()
-        println("kcr.record.id              : ${opts["kcr.id"]}")
+        println("kcr.record.id              : ${Kcr.id}")
         println("kcr.record.topic           : $topic")
         val metricDurationTimer = Timer.start()
 
-        // Remove non-kakfa properties
-        val cleanOpts = Properties()
-        cleanOpts.putAll(opts)
-        cleanOpts.remove("kcr.id")
-
         // Add/overwrite consumer config from optional properties file.
-        val consumerOpts = Properties()
-        if (consumerConfig.isNullOrEmpty().not()) {
-            val insConsumerConfig = FileInputStream(consumerConfig!!)
-            consumerOpts.load(insConsumerConfig)
-            cleanOpts.putAll(consumerOpts)
-        }
+        val consumerProperties = parent.kafkaOptions.consumerProperties()
+        consumerProperties.putAll(consumerConfig.properties)
 
         // Describe topic to get number of partitions to record.
-        val admin = KafkaAdminClient(cleanOpts)
+        val admin = KafkaAdminClient(consumerProperties)
         val numberPartitions = admin.numberPartitions(topic)
         println("kcr.record.topic.partitions: $numberPartitions")
-        println("kcr.record.duration        : $duration")
-        println("kcr.header.timestamp       : $timestampHeaderName")
+        if (duration.isPresent) {
+            println("kcr.record.duration        : $duration")
+        }
+        println("kcr.header.timestamp       : ${if (timestampHeaderName.isNotBlank()) timestampHeaderName else "<none>"}")
 
         // Create a cassette and start recording topic messages
         val sinkFactory = FileSinkFactory()
-        val sourceFactory = KafkaSourceFactory(id = id, sourceConfig = cleanOpts, topic = topic, groupId = groupId)
+        val sourceFactory = KafkaSourceFactory(
+            id = Kcr.id,
+            sourceConfig = consumerProperties,
+            topic = topic,
+            groupId = groupId
+        )
         val cassette =
             Cassette(
                 topic = topic,
@@ -105,11 +113,11 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
                 sinkFactory = sinkFactory,
                 dataDirectory = dataDirectory
             )
-        cassette.create("${opts["kcr.id"]}")
-       
+        cassette.create(Kcr.id)
+
         // Launch a Recorder co-routine for each partition. Each has a source and sink.  A Recorder reads records
         // from the source and writes to the sink.
-        runBlocking<Unit>{
+        runBlocking<Unit> {
             for (partitionNumber in 0 until numberPartitions) {
                 val source = cassette.sources[partitionNumber]
                 val sink = cassette.sinks[partitionNumber]
@@ -121,14 +129,12 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
                 }
             }
 
-            if(hasDuration){
-                try{
-                    val parts = duration!!.split("h", "m", "s")
-                    val numDuration: Long = (parts[0].toDouble() * 3600000 + parts[1].toDouble() * 60000 + parts[2].toDouble() * 1000).toLong()
-                    delay(numDuration)
+            if (duration.isPresent) {
+                try {
+                    delay(duration.millis)
                     coroutineContext[Job]?.cancel()
                     throw Exception("coroutine cancellation")
-                } catch(e: Exception){
+                } catch (e: Exception) {
                     metricDurationTimer.stop(registry.timer("duration-ms"))
                     val info = CassetteInfo(cassette.cassetteDir)
                     println(info.summary())
@@ -140,7 +146,7 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
 
 
         // Handle ctrl-c
-        log.trace(".run.wait-for-sigint")
+        L.trace(".run.wait-for-sigint")
         Signal.handle(Signal("INT"), object : SignalHandler {
             override fun handle(sig: Signal) {
                 metricDurationTimer.stop(
@@ -160,11 +166,10 @@ class Record : CliktCommand(name = "record", help = "Record a Kafka topic to a c
             metricElapsedMillis?.set(Duration.between(start, Date().toInstant()).toMillis())
             Thread.sleep(500L)
         }
-
     }
+
 
     companion object {
-        const val DEFAULT_CASSETTE_DIR = "kcr"
+        val L: Logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
     }
-
 }

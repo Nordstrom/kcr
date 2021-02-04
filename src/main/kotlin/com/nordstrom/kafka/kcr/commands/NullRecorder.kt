@@ -4,7 +4,7 @@ import java.util.*
 
 class NullRecorder(
     val config: Properties,
-    val cassetteName:String?
+    val cassetteName: String?
 ) {
     init {
         println("kcr-null-recorder.init.OK")

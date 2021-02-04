@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     // NB: plugin versions pinned in settings.gradle
     id("org.jetbrains.kotlin.jvm")
@@ -6,32 +8,21 @@ plugins {
     id("com.github.johnrengelman.shadow")
     id("com.adarshr.test-logger")
     id("com.diffplug.spotless")
-}
-
-ext {
-    commonsCodecVersion = "1.15"
-    kafkaVersion = "2.5.1"
-
-    kotlinxCoroutinesVersion = "1.4.2"
-    kotlinxSerializationVersion = "1.0.0"
-    kotestVersion = "4.3.1"
-
-    jupiterVersion = "5.7.0"
-
-    picocliVersion = "4.6.1"
-
-    slf4jVersion = "1.7.30"
+    id("net.nemerosa.versioning")
 }
 
 group = "com.nordstrom.kafka.kcr"
 
-mainClassName = "com.nordstrom.kafka.kcr.KcrKt"
+application {
+    mainClassName = "com.nordstrom.kafka.kcr.Kcr"
+}
 
 sourceSets {
     deploy
 }
 
 repositories {
+    mavenCentral()
     jcenter()
 }
 
@@ -46,14 +37,18 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationVersion")
 
     // Application dependencies
-//    implementation("info.picocli:picocli:$picocliVersion")
+    implementation("info.picocli:picocli:$picocliVersion")
     implementation("org.slf4j:slf4j-api:$slf4jVersion")
     implementation("org.slf4j:slf4j-simple:$slf4jVersion")
     implementation("org.apache.kafka:kafka-clients:$kafkaVersion")
     implementation("com.github.ajalt:clikt:1.7.0")
+//    implementation("com.github.ajalt.clikt:clikt:$cliKtVersion")
     implementation("io.micrometer:micrometer-registry-statsd:latest.release")
     implementation("io.micrometer:micrometer-registry-jmx:latest.release")
     implementation("commons-codec:commons-codec:$commonsCodecVersion")
+    implementation platform("software.amazon.awssdk:bom:$awsSdkVersion")
+    implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:netty-nio-client")
 
     // Test
     testImplementation("org.jetbrains.kotlin:kotlin-test")
@@ -64,7 +59,7 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${jupiterVersion}")
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+tasks.withType(KotlinCompile).all {
     kotlinOptions {
         jvmTarget = "11"
         //NB: Need this for kotlinx-serialization
@@ -81,6 +76,8 @@ test {
     testlogger {
         theme("mocha-parallel")
         showExceptions(true)
+        showCauses(true)
+        showStackTraces(true)
         showStandardStreams(true)
     }
 }
@@ -89,5 +86,22 @@ spotless {
     java {
         googleJavaFormat("1.9")
         removeUnusedImports()
+    }
+}
+
+version = "${versioning.info.lastTag}.${System.env.CI_PIPELINE_ID ?: 'dev'}"
+versioning {
+    noWarningOnDirty = true
+}
+processResources.dependsOn.add("generateVersionFile")
+task generateVersionFile {
+    doLast {
+        new File(project.buildDir, 'resources/main').mkdirs()
+        new File(project.buildDir, 'resources/main/version.properties')
+                .withWriter('utf-8') { writer ->
+                    writer.writeLine "version = ${project.version}"
+                    writer.writeLine "git.branch = ${project.versioning.info.branch}"
+                    writer.writeLine "git.commit = ${project.versioning.info.commit}"
+                }
     }
 }
