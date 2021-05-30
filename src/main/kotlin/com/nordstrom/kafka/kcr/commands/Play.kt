@@ -19,6 +19,7 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.produce
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import org.apache.commons.codec.binary.Hex
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.ByteArraySerializer
@@ -290,7 +291,7 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             topic,
             partitionToUse,
             record.key?.toByteArray(),
-            record.value.toByteArray()
+            Hex.decodeHex(record.value)
         )
         for (header in record.headers) {
             producerRecord.headers().add(header.key, header.value.toByteArray())
