@@ -57,7 +57,7 @@ class CassetteInfo(val cassette: String) {
         earliest = Date(t0.get()).toInstant()
         latest = Date(t1.get()).toInstant()
         cassetteLength = Duration.between(earliest, latest)
-        totalRecords = partitions.sumBy { it.count }
+        totalRecords = partitions.sumOf { it.count }
     }
 
     fun summary(): String {
