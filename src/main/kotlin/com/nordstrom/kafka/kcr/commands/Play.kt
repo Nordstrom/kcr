@@ -171,7 +171,6 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                 Thread.sleep(500L)
             }
         }
-
     }
 
     private fun runWithDuration(cinfo: CassetteInfo, client: KafkaProducer<ByteArray, ByteArray>, filelist: Array<String>) {
@@ -182,11 +181,11 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         while (!abort && shouldContinueWithDuration(timeLeftMillis)) {
             val runStart = Date().toInstant()
             runBlocking {
+                val earliestTimestamp = cinfo.earliest
+                val playbackTimestamp = Date().toInstant()
+
                 try {
                     withTimeout(timeLeftMillis) {
-                        // This is the playback offset (from earliest record to now) that is added to each record's timestamp
-                        // to determine correct playback time.
-                        val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, Date().toInstant())
                         for (fileName in filelist) {
                             // Skip manifest file
                             if (("manifest" in fileName).not()) {
@@ -194,8 +193,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                                 val records = recordsProducer(fileName)
                                 // Play records as separate jobs
                                 launch(Dispatchers.IO + CoroutineName("kcr-player")) {
+                                    val playbackLimiter = PlaybackLimiter(
+                                        playbackRate,
+                                        ChronoUnit.NANOS.between(earliestTimestamp, playbackTimestamp)
+                                    )
+
                                     records.consumeEach { record ->
-                                        play(client, record, offsetNanos)
+                                        play(client, record, playbackLimiter.proposeDelay(record))
                                     }
                                 }
                             }
@@ -217,9 +221,9 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
         var iRuns = 0
         while (shouldContinueWithCount(iRuns)) {
             runBlocking {
-                // This is the playback offset (from earliest record to now) that is added to each record's timestamp
-                // to determine correct playback time.
-                val offsetNanos = ChronoUnit.NANOS.between(cinfo.earliest, Date().toInstant())
+                val earliestTimestamp = cinfo.earliest
+                val playbackTimestamp = Date().toInstant()
+
                 for (fileName in filelist) {
                     // Skip manifest file
                     if (("manifest" in fileName).not()) {
@@ -227,8 +231,13 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
                         val records = recordsProducer(fileName)
                         // Play records as separate jobs
                         launch(Dispatchers.IO + CoroutineName("kcr-player")) {
+                            val playbackLimiter = PlaybackLimiter(
+                                playbackRate,
+                                ChronoUnit.NANOS.between(earliestTimestamp, playbackTimestamp)
+                            )
+
                             records.consumeEach { record ->
-                                play(client, record, offsetNanos)
+                               play(client, record, playbackLimiter.proposeDelay(record))
                             }
                         }
                     }
@@ -237,7 +246,6 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             iRuns++
             // println( "run number:" + iRuns )
         }
-
     }
 
     // Produces CassetteRecords by reading the partition file.
@@ -271,20 +279,11 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
     }
 
     // Plays a record (writes to target Kafka topic)
-    private suspend fun play(client: KafkaProducer<ByteArray, ByteArray>, record: CassetteRecord, offsetNanos: Long) {
-        val ts = Date(record.timestamp).toInstant()
-        val now = Date().toInstant()
-        val whenToSend = ts.plusNanos(offsetNanos)
-        val wait = Duration.between(now, whenToSend)
-
-        val millis = when (playbackRate > 0.0) {
-            true -> (wait.toMillis().toFloat() / playbackRate).toLong()
-            //NB: playbackRate == 0, records will not be written in capture order.
-            false -> 0L
-        }
-
-        //NB: millisecond resolution!
-        delay(millis)
+    private suspend fun play(
+        client: KafkaProducer<ByteArray, ByteArray>,
+        record: CassetteRecord,
+        delayBy: Duration?
+    ) {
         //TODO map record.partition to target topic partition in round-robin fashion.
         val partitionToUse = mapPartition(record.partition, numberPartitions)
         val producerRecord = ProducerRecord<ByteArray, ByteArray>(
@@ -293,9 +292,15 @@ class Play : CliktCommand(name = "play", help = "Playback a cassette to a Kafka 
             record.key?.toByteArray(),
             Hex.decodeHex(record.value)
         )
+
         for (header in record.headers) {
             producerRecord.headers().add(header.key, header.value.toByteArray())
         }
+
+        delayBy?.run {
+            delay(toMillis())
+        }
+
         try {
             val future = client.send(producerRecord)
             future.get()
